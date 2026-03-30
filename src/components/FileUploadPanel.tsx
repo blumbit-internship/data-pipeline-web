@@ -11,8 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import type { StartJobInput, ToolType } from "@/hooks/useJobs";
 import { toast } from "sonner";
-import { backendRoutes } from "@/lib/backend_routes";
-import type { ToolDefinition } from "@/types/tools";
+import { useAvailableTools } from "@/hooks/useTools";
 
 interface FileUploadPanelProps {
   onStartJob: (input: StartJobInput) => Promise<void> | void;
@@ -21,32 +20,28 @@ interface FileUploadPanelProps {
 export function FileUploadPanel({ onStartJob }: FileUploadPanelProps) {
   const [file, setFile] = useState<File | null>(null);
   const [sheetsUrl, setSheetsUrl] = useState("");
-  const [tools, setTools] = useState<ToolDefinition[]>([]);
   const [tool, setTool] = useState<ToolType>("");
   const [dragging, setDragging] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [loadingTools, setLoadingTools] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
+  const {
+    data: tools = [],
+    isLoading: loadingTools,
+    isError: isToolsError,
+  } = useAvailableTools();
   const selectedTool = tools.find((t) => t.name === tool);
 
   useEffect(() => {
-    const loadTools = async () => {
-      try {
-        setLoadingTools(true);
-        const response = await fetch(backendRoutes.tools.available);
-        if (!response.ok) throw new Error("Failed to load tools");
-        const data = (await response.json()) as ToolDefinition[];
-        setTools(data);
-        if (data.length > 0) setTool((prev) => prev || data[0].name);
-      } catch (error) {
-        toast.error("Failed to load tools list.");
-        setTools([]);
-      } finally {
-        setLoadingTools(false);
-      }
-    };
-    loadTools();
-  }, []);
+    if (tools.length > 0 && !tool) {
+      setTool(tools[0].name);
+    }
+  }, [tools, tool]);
+
+  useEffect(() => {
+    if (isToolsError) {
+      toast.error("Failed to load tools list.");
+    }
+  }, [isToolsError]);
 
   useEffect(() => {
     if (!selectedTool?.supportsSheetsUrl && sheetsUrl) {

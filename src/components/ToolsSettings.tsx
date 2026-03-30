@@ -1,11 +1,16 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { backendRoutes } from "@/lib/backend_routes";
 import type { ToolDefinition } from "@/types/tools";
+import {
+  useCreateTool,
+  useDeleteTool,
+  useToolsList,
+  useUpdateTool,
+} from "@/hooks/useTools";
 
 type ToolForm = Omit<ToolDefinition, "id" | "createdAt" | "updatedAt">;
 
@@ -19,29 +24,12 @@ const defaultForm: ToolForm = {
 };
 
 export default function ToolsSettings() {
-  const [tools, setTools] = useState<ToolDefinition[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const { data: tools = [], isLoading: loading } = useToolsList();
+  const createTool = useCreateTool();
+  const updateTool = useUpdateTool();
+  const deleteToolMutation = useDeleteTool();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ToolForm>(defaultForm);
-
-  const loadTools = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(backendRoutes.tools.list);
-      if (!response.ok) throw new Error("Failed to load tools");
-      const data = (await response.json()) as ToolDefinition[];
-      setTools(data);
-    } catch (error) {
-      toast.error("Failed to load tools.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadTools();
-  }, []);
 
   const resetForm = () => {
     setEditingId(null);
@@ -55,25 +43,15 @@ export default function ToolsSettings() {
     }
 
     try {
-      setSaving(true);
-      const url = editingId ? backendRoutes.tools.detail(editingId) : backendRoutes.tools.list;
-      const method = editingId ? "PATCH" : "POST";
-      const response = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(payload?.message || "Failed to save tool");
+      if (editingId) {
+        await updateTool.mutateAsync({ id: editingId, patch: form });
+      } else {
+        await createTool.mutateAsync(form);
       }
       toast.success(editingId ? "Tool updated." : "Tool created.");
       resetForm();
-      await loadTools();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to save tool.");
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -91,15 +69,15 @@ export default function ToolsSettings() {
 
   const deleteTool = async (id: string) => {
     try {
-      const response = await fetch(backendRoutes.tools.detail(id), { method: "DELETE" });
-      if (!response.ok) throw new Error("Failed to delete tool");
+      await deleteToolMutation.mutateAsync(id);
       toast.success("Tool deleted.");
       if (editingId === id) resetForm();
-      await loadTools();
     } catch (error) {
-      toast.error("Failed to delete tool.");
+      toast.error(error instanceof Error ? error.message : "Failed to delete tool.");
     }
   };
+
+  const saving = createTool.isPending || updateTool.isPending;
 
   return (
     <div className="max-w-5xl space-y-6">
@@ -202,7 +180,7 @@ export default function ToolsSettings() {
                     Edit
                   </Button>
                   <Button variant="destructive" size="sm" onClick={() => deleteTool(tool.id)}>
-                    Delete
+                    {deleteToolMutation.isPending ? "Deleting..." : "Delete"}
                   </Button>
                 </div>
               </div>
