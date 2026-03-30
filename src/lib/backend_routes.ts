@@ -8,9 +8,7 @@ export const backendRoutes = {
     update: (id: string) => `${API_URL}/validation_rules/${id}`,
     delete: (id: string) => `${API_URL}/validation_rules/${id}`,
   },
-  tasks: {
-    task1: {
-      process: `${API_URL}/tasks/task1/process`,
-    },
+  tools: {
+    process: `${API_URL}/tools/process`,
   },
 };

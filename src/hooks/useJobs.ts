@@ -46,7 +46,7 @@ export function useJobs() {
     };
     setJobs((prev) => [newJob, ...prev]);
 
-    if (toolType !== "data-validation") {
+    if (!file && !sheetsUrl) {
       setJobs((prev) =>
         prev.map((j) =>
           j.id === newJob.id
@@ -54,23 +54,7 @@ export function useJobs() {
                 ...j,
                 status: "error",
                 progress: 0,
-                errorMessage: "Only Data Validation is connected in v1.",
-              }
-            : j,
-        ),
-      );
-      return;
-    }
-
-    if (!file) {
-      setJobs((prev) =>
-        prev.map((j) =>
-          j.id === newJob.id
-            ? {
-                ...j,
-                status: "error",
-                progress: 0,
-                errorMessage: "Please upload an .xlsx file for Data Validation.",
+                errorMessage: "Please upload a file or provide a Google Sheets URL.",
               }
             : j,
         ),
@@ -80,9 +64,11 @@ export function useJobs() {
 
     try {
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("tool_name", toolType);
+      if (file) formData.append("file", file);
+      if (sheetsUrl) formData.append("sheets_url", sheetsUrl);
 
-      const response = await fetch(backendRoutes.tasks.task1.process, {
+      const response = await fetch(backendRoutes.tools.process, {
         method: "POST",
         body: formData,
       });
