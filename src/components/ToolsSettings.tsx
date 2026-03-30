@@ -4,6 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { ToolDefinition } from "@/types/tools";
 import {
   useCreateTool,
@@ -21,6 +28,12 @@ const defaultForm: ToolForm = {
   isActive: true,
   requiresFile: true,
   supportsSheetsUrl: false,
+  config: {
+    search_provider: "native",
+    max_serper_results: 6,
+    max_fetch_urls: 2,
+    timeout_seconds: 4,
+  },
 };
 
 export default function ToolsSettings() {
@@ -36,6 +49,8 @@ export default function ToolsSettings() {
     setForm(defaultForm);
   };
 
+  const isPhoneScraper = (form.name || "").trim().toLowerCase() === "phone-scraper";
+
   const saveTool = async () => {
     if (!form.name.trim() || !form.displayName.trim()) {
       toast.error("Tool name and display name are required.");
@@ -43,10 +58,35 @@ export default function ToolsSettings() {
     }
 
     try {
+      const payload: ToolForm = {
+        ...form,
+        config:
+          isPhoneScraper
+            ? {
+                search_provider:
+                  (form.config as Record<string, unknown> | undefined)?.search_provider === "serper" ||
+                  (form.config as Record<string, unknown> | undefined)?.search_provider === "scrapegraph"
+                    ? ((form.config as Record<string, unknown>).search_provider as "serper" | "scrapegraph")
+                    : "native",
+                max_serper_results: Math.max(
+                  1,
+                  Number((form.config as Record<string, unknown> | undefined)?.max_serper_results ?? 6)
+                ),
+                max_fetch_urls: Math.max(
+                  1,
+                  Number((form.config as Record<string, unknown> | undefined)?.max_fetch_urls ?? 2)
+                ),
+                timeout_seconds: Math.max(
+                  1,
+                  Number((form.config as Record<string, unknown> | undefined)?.timeout_seconds ?? 4)
+                ),
+              }
+            : form.config ?? {},
+      };
       if (editingId) {
-        await updateTool.mutateAsync({ id: editingId, patch: form });
+        await updateTool.mutateAsync({ id: editingId, patch: payload });
       } else {
-        await createTool.mutateAsync(form);
+        await createTool.mutateAsync(payload);
       }
       toast.success(editingId ? "Tool updated." : "Tool created.");
       resetForm();
@@ -64,6 +104,18 @@ export default function ToolsSettings() {
       isActive: tool.isActive,
       requiresFile: tool.requiresFile,
       supportsSheetsUrl: tool.supportsSheetsUrl,
+      config: {
+        search_provider:
+          (tool.config as Record<string, unknown> | undefined)?.search_provider === "serper" ||
+          (tool.config as Record<string, unknown> | undefined)?.search_provider === "scrapegraph"
+            ? ((tool.config as Record<string, unknown>).search_provider as "serper" | "scrapegraph")
+            : "native",
+        max_serper_results: Number(
+          (tool.config as Record<string, unknown> | undefined)?.max_serper_results ?? 6
+        ),
+        max_fetch_urls: Number((tool.config as Record<string, unknown> | undefined)?.max_fetch_urls ?? 2),
+        timeout_seconds: Number((tool.config as Record<string, unknown> | undefined)?.timeout_seconds ?? 4),
+      },
     });
   };
 
@@ -145,6 +197,81 @@ export default function ToolsSettings() {
             <Label>Supports Sheets URL</Label>
           </div>
         </div>
+        {isPhoneScraper && (
+          <div className="rounded-lg border border-border p-4 space-y-4">
+            <h4 className="text-sm font-medium text-foreground">Phone Scraper Config</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Search Provider</Label>
+                <Select
+                  value={
+                    ((form.config as Record<string, unknown> | undefined)?.search_provider as string) || "native"
+                  }
+                  onValueChange={(value) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      config: { ...(prev.config ?? {}), search_provider: value },
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="native">Native Fetch</SelectItem>
+                    <SelectItem value="serper">Serper</SelectItem>
+                    <SelectItem value="scrapegraph">ScrapeGraphAI</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="timeout-seconds">Timeout (seconds)</Label>
+                <Input
+                  id="timeout-seconds"
+                  type="number"
+                  min={1}
+                  value={String((form.config as Record<string, unknown> | undefined)?.timeout_seconds ?? 4)}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      config: { ...(prev.config ?? {}), timeout_seconds: Number(e.target.value || 4) },
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="max-serper-results">Max Serper Results</Label>
+                <Input
+                  id="max-serper-results"
+                  type="number"
+                  min={1}
+                  value={String((form.config as Record<string, unknown> | undefined)?.max_serper_results ?? 6)}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      config: { ...(prev.config ?? {}), max_serper_results: Number(e.target.value || 6) },
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="max-fetch-urls">Max Fetch URLs</Label>
+                <Input
+                  id="max-fetch-urls"
+                  type="number"
+                  min={1}
+                  value={String((form.config as Record<string, unknown> | undefined)?.max_fetch_urls ?? 2)}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      config: { ...(prev.config ?? {}), max_fetch_urls: Number(e.target.value || 2) },
+                    }))
+                  }
+                />
+              </div>
+            </div>
+          </div>
+        )}
         <div className="flex gap-2">
           <Button onClick={saveTool} disabled={saving}>
             {saving ? "Saving..." : editingId ? "Update Tool" : "Create Tool"}
