@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { backendRoutes } from "@/lib/backend_routes";
 
 export type JobStatus = "new" | "processing" | "completed" | "error";
-export type ToolType = "data-validation" | "phone-scraper" | "email-scraper";
+export type ToolType = string;
 
 export interface StartJobInput {
   file: File | null;
@@ -28,7 +28,8 @@ const TOOL_LABELS: Record<ToolType, string> = {
   "email-scraper": "Email Scraper",
 };
 
-export const getToolLabel = (t: ToolType) => TOOL_LABELS[t];
+export const getToolLabel = (t: ToolType) =>
+  TOOL_LABELS[t] || t.split("-").map((part) => part[0].toUpperCase() + part.slice(1)).join(" ");
 
 export function useJobs() {
   const [jobs, setJobs] = useState<Job[]>([]);

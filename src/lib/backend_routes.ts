@@ -9,6 +9,9 @@ export const backendRoutes = {
     delete: (id: string) => `${API_URL}/validation_rules/${id}`,
   },
   tools: {
+    available: `${API_URL}/tools/available`,
+    list: `${API_URL}/tools`,
+    detail: (id: string) => `${API_URL}/tools/${id}`,
     process: `${API_URL}/tools/process`,
   },
 };

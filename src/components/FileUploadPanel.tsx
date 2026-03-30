@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Upload, FileSpreadsheet, Link as LinkIcon, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +11,8 @@ import {
 import { Input } from "@/components/ui/input";
 import type { StartJobInput, ToolType } from "@/hooks/useJobs";
 import { toast } from "sonner";
+import { backendRoutes } from "@/lib/backend_routes";
+import type { ToolDefinition } from "@/types/tools";
 
 interface FileUploadPanelProps {
   onStartJob: (input: StartJobInput) => Promise<void> | void;
@@ -19,10 +21,38 @@ interface FileUploadPanelProps {
 export function FileUploadPanel({ onStartJob }: FileUploadPanelProps) {
   const [file, setFile] = useState<File | null>(null);
   const [sheetsUrl, setSheetsUrl] = useState("");
-  const [tool, setTool] = useState<ToolType>("data-validation");
+  const [tools, setTools] = useState<ToolDefinition[]>([]);
+  const [tool, setTool] = useState<ToolType>("");
   const [dragging, setDragging] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [loadingTools, setLoadingTools] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
+  const selectedTool = tools.find((t) => t.name === tool);
+
+  useEffect(() => {
+    const loadTools = async () => {
+      try {
+        setLoadingTools(true);
+        const response = await fetch(backendRoutes.tools.available);
+        if (!response.ok) throw new Error("Failed to load tools");
+        const data = (await response.json()) as ToolDefinition[];
+        setTools(data);
+        if (data.length > 0) setTool((prev) => prev || data[0].name);
+      } catch (error) {
+        toast.error("Failed to load tools list.");
+        setTools([]);
+      } finally {
+        setLoadingTools(false);
+      }
+    };
+    loadTools();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedTool?.supportsSheetsUrl && sheetsUrl) {
+      setSheetsUrl("");
+    }
+  }, [selectedTool, sheetsUrl]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -38,8 +68,16 @@ export function FileUploadPanel({ onStartJob }: FileUploadPanelProps) {
 
   const handleStart = async () => {
     if (!file && !sheetsUrl) return;
-    if (tool === "data-validation" && !file) {
-      toast.error("Please upload an .xlsx file for Data Validation.");
+    if (!tool) {
+      toast.error("No active tool is selected.");
+      return;
+    }
+    if (selectedTool?.requiresFile && !file) {
+      toast.error("This tool requires a file upload.");
+      return;
+    }
+    if (!selectedTool?.supportsSheetsUrl && sheetsUrl) {
+      toast.error("This tool does not support Google Sheets URLs.");
       return;
     }
 
@@ -102,29 +140,40 @@ export function FileUploadPanel({ onStartJob }: FileUploadPanelProps) {
       <div className="flex items-center gap-2">
         <LinkIcon className="h-4 w-4 text-muted-foreground shrink-0" />
         <Input
-          placeholder="Or paste a Google Sheets URL..."
+          placeholder={
+            selectedTool?.supportsSheetsUrl
+              ? "Or paste a Google Sheets URL..."
+              : "Google Sheets URL is not supported for selected tool"
+          }
           value={sheetsUrl}
           onChange={(e) => {
             setSheetsUrl(e.target.value);
             setFile(null);
           }}
           className="flex-1"
+          disabled={!selectedTool?.supportsSheetsUrl}
         />
       </div>
 
       {/* Tool selector + Start */}
       <div className="flex items-center gap-3">
-        <Select value={tool} onValueChange={(v) => setTool(v as ToolType)}>
-          <SelectTrigger className="w-48">
+        <Select value={tool} onValueChange={(v) => setTool(v as ToolType)} disabled={loadingTools || tools.length === 0}>
+          <SelectTrigger className="w-56">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="data-validation">Data Validation</SelectItem>
-            <SelectItem value="phone-scraper">Phone Scraper</SelectItem>
-            <SelectItem value="email-scraper">Email Scraper</SelectItem>
+            {tools.map((item) => (
+              <SelectItem key={item.id} value={item.name}>
+                {item.displayName}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
-        <Button onClick={handleStart} disabled={!hasInput || submitting} className="gap-2">
+        <Button
+          onClick={handleStart}
+          disabled={!hasInput || submitting || loadingTools || tools.length === 0}
+          className="gap-2"
+        >
           <Play className="h-4 w-4" />
           {submitting ? "Processing..." : "Start Processing"}
         </Button>

@@ -21,7 +21,7 @@ const mainItems = [
 ];
 
 const settingsItems = [
-  { title: "Settings", url: "/settings", icon: Settings },
+  { title: "Tool Settings", url: "/settings", icon: Settings },
 ];
 
 export function AppSidebar() {
