@@ -6,6 +6,7 @@ interface JobsContextType {
   addJob: (input: StartJobInput) => Promise<void>;
   stopJob: (id: string) => void;
   restartJob: (id: string) => void;
+  reloadJobs: () => Promise<void>;
 }
 
 const JobsContext = createContext<JobsContextType | null>(null);

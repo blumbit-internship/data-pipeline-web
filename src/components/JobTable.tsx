@@ -29,6 +29,14 @@ interface JobTableProps {
 }
 
 export function JobTable({ jobs, onStop, onRestart }: JobTableProps) {
+  const formatDuration = (seconds?: number) => {
+    const s = Math.max(0, Number(seconds || 0));
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(s / 60);
+    const rem = s % 60;
+    return `${m}m ${rem}s`;
+  };
+
   const handleDownload = (downloadUrl?: string) => {
     if (!downloadUrl) {
       toast.error("No output file link is available for this job.");
@@ -54,6 +62,7 @@ export function JobTable({ jobs, onStop, onRestart }: JobTableProps) {
             <TableHead className="w-[200px]">Project / File</TableHead>
             <TableHead className="w-[140px]">Tool</TableHead>
             <TableHead className="w-[140px]">Started</TableHead>
+            <TableHead className="w-[120px]">Duration</TableHead>
             <TableHead className="w-[180px]">Progress</TableHead>
             <TableHead className="w-[100px]">Status</TableHead>
             <TableHead className="w-[120px] text-right">Actions</TableHead>
@@ -71,7 +80,10 @@ export function JobTable({ jobs, onStop, onRestart }: JobTableProps) {
                   {getToolLabel(job.toolType)}
                 </TableCell>
                 <TableCell className="text-muted-foreground text-sm">
-                  {format(job.startTime, "HH:mm:ss")}
+                  {format(job.startTime, "MMM d, HH:mm")}
+                </TableCell>
+                <TableCell className="text-muted-foreground text-sm">
+                  {formatDuration(job.processingTimeSeconds)}
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">

@@ -14,4 +14,7 @@ export const backendRoutes = {
     detail: (id: string) => `${API_URL}/tools/${id}`,
     process: `${API_URL}/tools/process`,
   },
+  jobs: {
+    list: `${API_URL}/jobs`,
+  },
 };

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { backendRoutes } from "@/lib/backend_routes";
 
 export type JobStatus = "new" | "processing" | "completed" | "error";
@@ -20,6 +20,7 @@ export interface Job {
   totalRows: number;
   downloadUrl?: string;
   errorMessage?: string;
+  processingTimeSeconds?: number;
 }
 
 const TOOL_LABELS: Record<ToolType, string> = {
@@ -31,8 +32,62 @@ const TOOL_LABELS: Record<ToolType, string> = {
 export const getToolLabel = (t: ToolType) =>
   TOOL_LABELS[t] || t.split("-").map((part) => part[0].toUpperCase() + part.slice(1)).join(" ");
 
+interface ApiJob {
+  id: string;
+  toolName: string;
+  sourceName: string;
+  status: JobStatus;
+  progress: number;
+  totalRows: number;
+  downloadUrl?: string;
+  errorMessage?: string;
+  createdAt: string;
+  processingTimeSeconds?: number;
+}
+
+interface ApiJobsListResponse {
+  results: ApiJob[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
 export function useJobs() {
   const [jobs, setJobs] = useState<Job[]>([]);
+
+  const loadJobs = useCallback(async () => {
+    try {
+      const params = new URLSearchParams({
+        page: "1",
+        page_size: "200",
+      });
+      const response = await fetch(`${backendRoutes.jobs.list}?${params.toString()}`);
+      if (!response.ok) return;
+      const payload = (await response.json()) as ApiJobsListResponse | ApiJob[];
+      const items = Array.isArray(payload) ? payload : payload.results || [];
+      setJobs(
+        items.map((job) => ({
+          id: job.id,
+          fileName: job.sourceName,
+          toolType: job.toolName,
+          startTime: new Date(job.createdAt),
+          progress: job.progress,
+          status: job.status,
+          totalRows: job.totalRows,
+          downloadUrl: job.downloadUrl,
+          errorMessage: job.errorMessage,
+          processingTimeSeconds: job.processingTimeSeconds || 0,
+        })),
+      );
+    } catch {
+      // silent fallback: keep local state
+    }
+  }, []);
+
+  useEffect(() => {
+    loadJobs();
+  }, [loadJobs]);
 
   const addJob = useCallback(async ({ file, sheetsUrl, toolType }: StartJobInput) => {
     const fileName = file?.name || sheetsUrl || "Untitled";
@@ -79,20 +134,7 @@ export function useJobs() {
         throw new Error(payload?.message || `Failed with status ${response.status}`);
       }
 
-      setJobs((prev) =>
-        prev.map((j) =>
-          j.id === newJob.id
-            ? {
-                ...j,
-                status: "completed",
-                progress: 100,
-                totalRows: Number(payload?.total_rows || 0),
-                downloadUrl: payload?.download_url || payload?.output_path,
-                errorMessage: undefined,
-              }
-            : j,
-        ),
-      );
+      await loadJobs();
     } catch (error) {
       setJobs((prev) =>
         prev.map((j) =>
@@ -103,12 +145,14 @@ export function useJobs() {
                 progress: 0,
                 errorMessage:
                   error instanceof Error ? error.message : "Failed to process file.",
+                processingTimeSeconds: 0,
               }
             : j,
         ),
       );
+      await loadJobs();
     }
-  }, []);
+  }, [loadJobs]);
 
   const stopJob = useCallback((id: string) => {
     setJobs((prev) =>
@@ -135,5 +179,5 @@ export function useJobs() {
     );
   }, []);
 
-  return { jobs, addJob, stopJob, restartJob };
+  return { jobs, addJob, stopJob, restartJob, reloadJobs: loadJobs };
 }

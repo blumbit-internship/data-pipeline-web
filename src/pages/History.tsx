@@ -25,6 +25,13 @@ const History = () => {
   const { jobs, restartJob } = useJobsContext();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const formatDuration = (seconds?: number) => {
+    const s = Math.max(0, Number(seconds || 0));
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(s / 60);
+    const rem = s % 60;
+    return `${m}m ${rem}s`;
+  };
 
   const handleDownload = (downloadUrl?: string) => {
     if (!downloadUrl) {
@@ -90,6 +97,7 @@ const History = () => {
                   <TableHead>File Name</TableHead>
                   <TableHead>Tool</TableHead>
                   <TableHead>Started</TableHead>
+                  <TableHead>Duration</TableHead>
                   <TableHead>Rows</TableHead>
                   <TableHead className="w-[160px]">Progress</TableHead>
                   <TableHead>Status</TableHead>
@@ -105,6 +113,9 @@ const History = () => {
                       <TableCell className="text-sm text-muted-foreground">{getToolLabel(job.toolType)}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {format(job.startTime, "MMM d, HH:mm")}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatDuration(job.processingTimeSeconds)}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {job.totalRows.toLocaleString()}
