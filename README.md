@@ -19,6 +19,15 @@ npm install
 npm run dev
 ```
 
+## Docker
+
+```bash
+cd repos/data-pipeline-web
+docker compose up --build
+```
+
+Frontend will be available at `http://127.0.0.1:5173`.
+
 ## Environment
 
 Optional `.env`:
