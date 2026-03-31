@@ -64,7 +64,7 @@ const History = () => {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = useState(5);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -210,6 +210,7 @@ const History = () => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="5">5 / page</SelectItem>
               <SelectItem value="10">10 / page</SelectItem>
               <SelectItem value="25">25 / page</SelectItem>
               <SelectItem value="50">50 / page</SelectItem>
