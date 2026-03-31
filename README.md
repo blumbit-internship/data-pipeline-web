@@ -46,3 +46,19 @@ If not set, frontend falls back to `http://127.0.0.1:8000/api`.
 ```bash
 npm run build
 ```
+
+## GitHub Pages Deployment
+
+This repo includes `.github/workflows/pages.yml` for automatic GitHub Pages deploy on `main`.
+
+Setup once in GitHub:
+
+1. In repository settings, go to **Pages** and set source to **GitHub Actions**.
+2. (Recommended) In **Settings -> Secrets and variables -> Actions -> Variables**, add:
+   - `VITE_API_URL` = your backend API URL (for example `https://data-pipeline-api.vercel.app/api`)
+3. Push to `main` (or run the workflow manually) to publish.
+
+Notes:
+
+- `VITE_BASE_PATH` is set automatically in workflow to `/<repo-name>/` for Pages asset paths.
+- SPA fallback is handled by publishing `404.html` as a copy of `index.html`.
