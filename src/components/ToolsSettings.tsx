@@ -11,7 +11,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { ToolDefinition } from "@/types/tools";
+import type {
+  EmailSearchProvider,
+  PhoneSearchProvider,
+  ToolDefinition,
+} from "@/types/tools";
 import {
   useCreateTool,
   useDeleteTool,
@@ -36,6 +40,26 @@ const defaultForm: ToolForm = {
   },
 };
 
+const getToolKind = (name: string) => (name || "").trim().toLowerCase();
+
+const normalizePhoneConfig = (config?: Record<string, unknown>) => ({
+  search_provider:
+    config?.search_provider === "serper" || config?.search_provider === "scrapegraph"
+      ? (config.search_provider as PhoneSearchProvider)
+      : "native",
+  max_serper_results: Math.max(1, Number(config?.max_serper_results ?? 6)),
+  max_fetch_urls: Math.max(1, Number(config?.max_fetch_urls ?? 2)),
+  timeout_seconds: Math.max(1, Number(config?.timeout_seconds ?? 4)),
+  scrapegraph_timeout_seconds: Math.max(1, Number(config?.scrapegraph_timeout_seconds ?? 20)),
+});
+
+const normalizeEmailConfig = (config?: Record<string, unknown>) => ({
+  search_provider: config?.search_provider === "native" ? ("native" as EmailSearchProvider) : ("serper" as EmailSearchProvider),
+  max_serper_results: Math.max(1, Number(config?.max_serper_results ?? 6)),
+  max_fetch_urls: Math.max(1, Number(config?.max_fetch_urls ?? 2)),
+  timeout_seconds: Math.max(1, Number(config?.timeout_seconds ?? 4)),
+});
+
 export default function ToolsSettings() {
   const { data: tools = [], isLoading: loading } = useToolsList();
   const createTool = useCreateTool();
@@ -49,7 +73,9 @@ export default function ToolsSettings() {
     setForm(defaultForm);
   };
 
-  const isPhoneScraper = (form.name || "").trim().toLowerCase() === "phone-scraper";
+  const toolKind = getToolKind(form.name);
+  const isPhoneScraper = toolKind === "phone-scraper";
+  const isEmailScraper = toolKind === "email-scraper";
 
   const saveTool = async () => {
     if (!form.name.trim() || !form.displayName.trim()) {
@@ -60,27 +86,10 @@ export default function ToolsSettings() {
     try {
       const payload: ToolForm = {
         ...form,
-        config:
-          isPhoneScraper
-            ? {
-                search_provider:
-                  (form.config as Record<string, unknown> | undefined)?.search_provider === "serper" ||
-                  (form.config as Record<string, unknown> | undefined)?.search_provider === "scrapegraph"
-                    ? ((form.config as Record<string, unknown>).search_provider as "serper" | "scrapegraph")
-                    : "native",
-                max_serper_results: Math.max(
-                  1,
-                  Number((form.config as Record<string, unknown> | undefined)?.max_serper_results ?? 6)
-                ),
-                max_fetch_urls: Math.max(
-                  1,
-                  Number((form.config as Record<string, unknown> | undefined)?.max_fetch_urls ?? 2)
-                ),
-                timeout_seconds: Math.max(
-                  1,
-                  Number((form.config as Record<string, unknown> | undefined)?.timeout_seconds ?? 4)
-                ),
-              }
+        config: isPhoneScraper
+          ? normalizePhoneConfig(form.config as Record<string, unknown> | undefined)
+          : isEmailScraper
+            ? normalizeEmailConfig(form.config as Record<string, unknown> | undefined)
             : form.config ?? {},
       };
       if (editingId) {
@@ -97,6 +106,7 @@ export default function ToolsSettings() {
 
   const startEdit = (tool: ToolDefinition) => {
     setEditingId(tool.id);
+    const toolKind = getToolKind(tool.name);
     setForm({
       name: tool.name,
       displayName: tool.displayName,
@@ -104,18 +114,12 @@ export default function ToolsSettings() {
       isActive: tool.isActive,
       requiresFile: tool.requiresFile,
       supportsSheetsUrl: tool.supportsSheetsUrl,
-      config: {
-        search_provider:
-          (tool.config as Record<string, unknown> | undefined)?.search_provider === "serper" ||
-          (tool.config as Record<string, unknown> | undefined)?.search_provider === "scrapegraph"
-            ? ((tool.config as Record<string, unknown>).search_provider as "serper" | "scrapegraph")
-            : "native",
-        max_serper_results: Number(
-          (tool.config as Record<string, unknown> | undefined)?.max_serper_results ?? 6
-        ),
-        max_fetch_urls: Number((tool.config as Record<string, unknown> | undefined)?.max_fetch_urls ?? 2),
-        timeout_seconds: Number((tool.config as Record<string, unknown> | undefined)?.timeout_seconds ?? 4),
-      },
+      config:
+        toolKind === "phone-scraper"
+          ? normalizePhoneConfig(tool.config as Record<string, unknown> | undefined)
+          : toolKind === "email-scraper"
+            ? normalizeEmailConfig(tool.config as Record<string, unknown> | undefined)
+            : (tool.config ?? {}),
     });
   };
 
@@ -258,6 +262,100 @@ export default function ToolsSettings() {
                 <Label htmlFor="max-fetch-urls">Max Fetch URLs</Label>
                 <Input
                   id="max-fetch-urls"
+                  type="number"
+                  min={1}
+                  value={String((form.config as Record<string, unknown> | undefined)?.max_fetch_urls ?? 2)}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      config: { ...(prev.config ?? {}), max_fetch_urls: Number(e.target.value || 2) },
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="scrapegraph-timeout-seconds">ScrapeGraph Timeout (seconds)</Label>
+                <Input
+                  id="scrapegraph-timeout-seconds"
+                  type="number"
+                  min={1}
+                  value={String(
+                    (form.config as Record<string, unknown> | undefined)?.scrapegraph_timeout_seconds ?? 20
+                  )}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      config: {
+                        ...(prev.config ?? {}),
+                        scrapegraph_timeout_seconds: Number(e.target.value || 20),
+                      },
+                    }))
+                  }
+                />
+              </div>
+            </div>
+          </div>
+        )}
+        {isEmailScraper && (
+          <div className="rounded-lg border border-border p-4 space-y-4">
+            <h4 className="text-sm font-medium text-foreground">Email Scraper Config</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Search Provider</Label>
+                <Select
+                  value={
+                    ((form.config as Record<string, unknown> | undefined)?.search_provider as string) || "serper"
+                  }
+                  onValueChange={(value) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      config: { ...(prev.config ?? {}), search_provider: value },
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="serper">Serper</SelectItem>
+                    <SelectItem value="native">Native Fetch</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email-timeout-seconds">Timeout (seconds)</Label>
+                <Input
+                  id="email-timeout-seconds"
+                  type="number"
+                  min={1}
+                  value={String((form.config as Record<string, unknown> | undefined)?.timeout_seconds ?? 4)}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      config: { ...(prev.config ?? {}), timeout_seconds: Number(e.target.value || 4) },
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email-max-serper-results">Max Serper Results</Label>
+                <Input
+                  id="email-max-serper-results"
+                  type="number"
+                  min={1}
+                  value={String((form.config as Record<string, unknown> | undefined)?.max_serper_results ?? 6)}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      config: { ...(prev.config ?? {}), max_serper_results: Number(e.target.value || 6) },
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email-max-fetch-urls">Max Fetch URLs</Label>
+                <Input
+                  id="email-max-fetch-urls"
                   type="number"
                   min={1}
                   value={String((form.config as Record<string, unknown> | undefined)?.max_fetch_urls ?? 2)}
