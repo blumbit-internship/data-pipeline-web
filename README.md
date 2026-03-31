@@ -7,6 +7,8 @@ React dashboard for starting processing jobs and downloading results.
 - Tool dropdown is loaded dynamically from backend: `GET /api/tools/available`.
 - Tools are managed from frontend settings page via CRUD endpoints.
 - Phone scraper method is configurable in Tool Settings (`native` / `serper` / `scrapegraph`).
+- Email scraper method is configurable in Tool Settings (`native` / `serper`).
+- Tool config is stored per-tool in DB (`Tool.config`), so changing one tool does not change another.
 - Sends processing request to unified endpoint: `POST /api/tools/process`
   with `tool_name` + payload.
 - Tracks job status in UI (`processing`, `completed`, `error`).
