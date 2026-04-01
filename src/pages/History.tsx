@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
-import { Download, RotateCcw, Search, Filter } from "lucide-react";
+import { Download, RotateCcw, Search, Filter, Eye, StopCircle, Trash2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { useJobsContext } from "@/context/JobsContext";
 import { backendRoutes } from "@/lib/backend_routes";
@@ -30,6 +31,7 @@ const statusConfig: Record<JobStatus, { label: string; className: string }> = {
   processing: { label: "Processing", className: "bg-primary/10 text-primary border-transparent" },
   completed: { label: "Completed", className: "bg-success/10 text-success border-transparent" },
   error: { label: "Error", className: "bg-destructive/10 text-destructive border-transparent" },
+  cancelled: { label: "Cancelled", className: "bg-warning/10 text-warning border-transparent" },
 };
 
 interface ApiJob {
@@ -39,6 +41,7 @@ interface ApiJob {
   status: JobStatus;
   progress: number;
   totalRows: number;
+  statusCounts?: Record<string, number>;
   downloadUrl?: string;
   errorMessage?: string;
   createdAt: string;
@@ -54,7 +57,8 @@ interface ApiJobsListResponse {
 }
 
 const History = () => {
-  const { restartJob } = useJobsContext();
+  const navigate = useNavigate();
+  const { restartJob, stopJob, deleteJob } = useJobsContext();
   const { data: tools = [] } = useAvailableTools();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -93,6 +97,7 @@ const History = () => {
           progress: job.progress,
           status: job.status,
           totalRows: job.totalRows,
+          statusCounts: job.statusCounts || {},
           downloadUrl: job.downloadUrl,
           errorMessage: job.errorMessage,
           processingTimeSeconds: job.processingTimeSeconds || 0,
@@ -147,6 +152,20 @@ const History = () => {
     toast.success("Download started.");
   };
 
+  const handleDeleteJob = async (id: string) => {
+    const previousRows = jobs;
+    setJobs((prev) => prev.filter((j) => j.id !== id));
+    setTotal((prev) => Math.max(0, prev - 1));
+    try {
+      await deleteJob(id);
+      await loadJobs();
+    } catch (error) {
+      setJobs(previousRows);
+      setTotal((prev) => prev + 1);
+      toast.error(error instanceof Error ? error.message : "Failed to delete job.");
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-5 max-w-6xl">
@@ -178,6 +197,7 @@ const History = () => {
               <SelectItem value="processing">Processing</SelectItem>
               <SelectItem value="completed">Completed</SelectItem>
               <SelectItem value="error">Error</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
             </SelectContent>
           </Select>
           <Select value={toolFilter} onValueChange={setToolFilter}>
@@ -246,8 +266,11 @@ const History = () => {
                 <TableBody>
                   {jobs.map((job) => {
                     const sc = statusConfig[job.status];
+                    const hasFailedRows = Object.entries(job.statusCounts || {}).some(
+                      ([key, value]) => key.trim().toLowerCase() !== "ok" && Number(value || 0) > 0,
+                    );
                     return (
-                      <TableRow key={job.id}>
+                      <TableRow key={job.id} className="cursor-pointer" onClick={() => navigate(`/jobs/${job.id}`)}>
                         <TableCell className="font-medium text-foreground">{job.fileName}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">{getToolLabel(job.toolType)}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">
@@ -271,8 +294,47 @@ const History = () => {
                           <Badge variant="outline" className={sc.className}>{sc.label}</Badge>
                         </TableCell>
                         <TableCell className="text-right">
+                          <Button variant="ghost" size="icon" onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/jobs/${job.id}`);
+                          }} title="Details">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          {job.status === "processing" && (
+                            <Button variant="ghost" size="icon" onClick={(e) => {
+                              e.stopPropagation();
+                              void stopJob(job.id);
+                            }} title="Stop">
+                              <StopCircle className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
                           {job.status === "error" && (
-                            <Button variant="ghost" size="icon" onClick={() => restartJob(job.id)}>
+                            <Button variant="ghost" size="icon" onClick={(e) => {
+                              e.stopPropagation();
+                              void restartJob(job.id).catch((error: unknown) => {
+                                toast.error(error instanceof Error ? error.message : "Failed to resume job.");
+                              });
+                            }}>
+                              <RotateCcw className="h-4 w-4 text-primary" />
+                            </Button>
+                          )}
+                          {job.status === "cancelled" && (
+                            <Button variant="ghost" size="icon" title="Resume" onClick={(e) => {
+                              e.stopPropagation();
+                              void restartJob(job.id).catch((error: unknown) => {
+                                toast.error(error instanceof Error ? error.message : "Failed to resume job.");
+                              });
+                            }}>
+                              <RotateCcw className="h-4 w-4 text-primary" />
+                            </Button>
+                          )}
+                          {job.status === "completed" && hasFailedRows && (
+                            <Button variant="ghost" size="icon" title="Retry Failed" onClick={(e) => {
+                              e.stopPropagation();
+                              void restartJob(job.id, { retryFailedOnly: true }).catch((error: unknown) => {
+                                toast.error(error instanceof Error ? error.message : "Failed to retry failed rows.");
+                              });
+                            }}>
                               <RotateCcw className="h-4 w-4 text-primary" />
                             </Button>
                           )}
@@ -280,9 +342,27 @@ const History = () => {
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => handleDownload(job.downloadUrl)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownload(job.downloadUrl);
+                              }}
                             >
                               <Download className="h-4 w-4 text-success" />
+                            </Button>
+                          )}
+                          {job.status !== "processing" && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Delete"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (window.confirm("Delete this job and its files?")) {
+                                  void handleDeleteJob(job.id);
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
                           )}
                         </TableCell>

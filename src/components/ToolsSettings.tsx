@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -12,8 +13,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type {
-  EmailSearchProvider,
+  EmailEnrichmentProvider,
   PhoneSearchProvider,
+  RoutingMode,
+  ScrapegraphEngine,
+  ScrapegraphMode,
   ToolDefinition,
 } from "@/types/tools";
 import {
@@ -22,6 +26,7 @@ import {
   useToolsList,
   useUpdateTool,
 } from "@/hooks/useTools";
+import { backendRoutes } from "@/lib/backend_routes";
 
 type ToolForm = Omit<ToolDefinition, "id" | "createdAt" | "updatedAt">;
 
@@ -41,23 +46,105 @@ const defaultForm: ToolForm = {
 };
 
 const getToolKind = (name: string) => (name || "").trim().toLowerCase();
+const EMAIL_PROVIDER_OPTIONS: EmailEnrichmentProvider[] = [
+  "apollo",
+  "hunter",
+  "rocketreach",
+  "coresignal",
+  "brightdata",
+  "scrapegraph",
+  "serper",
+  "native",
+];
+const PHONE_PROVIDER_OPTIONS: PhoneSearchProvider[] = [
+  "native",
+  "serper",
+  "scrapegraph",
+  "apollo",
+  "rocketreach",
+  "brave",
+  "google_places",
+];
+const ROUTING_MODE_OPTIONS: RoutingMode[] = ["auto", "managed", "proxy", "direct"];
+const SCRAPEGRAPH_ENGINE_OPTIONS: ScrapegraphEngine[] = ["direct", "serper", "searxng"];
+const SCRAPEGRAPH_MODE_OPTIONS: ScrapegraphMode[] = ["cloud", "local"];
 
 const normalizePhoneConfig = (config?: Record<string, unknown>) => ({
-  search_provider:
-    config?.search_provider === "serper" || config?.search_provider === "scrapegraph"
-      ? (config.search_provider as PhoneSearchProvider)
+  search_provider: (() => {
+    const selected =
+      config?.selected_provider === "serper" ||
+      config?.selected_provider === "scrapegraph" ||
+      config?.selected_provider === "searxng"
+        ? (config.selected_provider as PhoneSearchProvider)
+        : "native";
+    return selected;
+  })(),
+  selected_provider:
+    String(config?.selected_provider || "").trim().toLowerCase() === "searxng"
+      ? ("scrapegraph" as PhoneSearchProvider)
+      : PHONE_PROVIDER_OPTIONS.includes(String(config?.selected_provider || "").trim().toLowerCase() as PhoneSearchProvider)
+        ? (String(config?.selected_provider || "").trim().toLowerCase() as PhoneSearchProvider)
       : "native",
   max_serper_results: Math.max(1, Number(config?.max_serper_results ?? 6)),
   max_fetch_urls: Math.max(1, Number(config?.max_fetch_urls ?? 2)),
   timeout_seconds: Math.max(1, Number(config?.timeout_seconds ?? 4)),
   scrapegraph_timeout_seconds: Math.max(1, Number(config?.scrapegraph_timeout_seconds ?? 20)),
+  scrapegraph_engine:
+    SCRAPEGRAPH_ENGINE_OPTIONS.includes(String(config?.scrapegraph_engine || "direct") as ScrapegraphEngine)
+      ? (String(config?.scrapegraph_engine) as ScrapegraphEngine)
+      : ("direct" as ScrapegraphEngine),
+  scrapegraph_mode:
+    SCRAPEGRAPH_MODE_OPTIONS.includes(String(config?.scrapegraph_mode || "cloud") as ScrapegraphMode)
+      ? (String(config?.scrapegraph_mode) as ScrapegraphMode)
+      : ("cloud" as ScrapegraphMode),
+  scrapegraph_llm_provider: String(config?.scrapegraph_llm_provider || "openai"),
+  scrapegraph_llm_model: String(config?.scrapegraph_llm_model || "gpt-4o-mini"),
+  routing_mode:
+    ROUTING_MODE_OPTIONS.includes(String(config?.routing_mode || "auto") as RoutingMode)
+      ? (String(config?.routing_mode) as RoutingMode)
+      : ("auto" as RoutingMode),
 });
 
 const normalizeEmailConfig = (config?: Record<string, unknown>) => ({
-  search_provider: config?.search_provider === "native" ? ("native" as EmailSearchProvider) : ("serper" as EmailSearchProvider),
+  selected_provider: (() => {
+    const selected = String(config?.selected_provider || "").trim().toLowerCase();
+    return EMAIL_PROVIDER_OPTIONS.includes(selected as EmailEnrichmentProvider)
+      ? (selected as EmailEnrichmentProvider)
+      : ("native" as EmailEnrichmentProvider);
+  })(),
+  provider_order: (() => {
+    const raw = Array.isArray(config?.provider_order) ? config?.provider_order : [];
+    const normalized = raw
+      .map((value) => String(value).trim().toLowerCase())
+      .filter((value): value is EmailEnrichmentProvider =>
+        EMAIL_PROVIDER_OPTIONS.includes(value as EmailEnrichmentProvider),
+      );
+    return normalized.length > 0 ? normalized : EMAIL_PROVIDER_OPTIONS;
+  })(),
+  search_provider: (() => {
+    const selected = String(config?.selected_provider || "").trim().toLowerCase();
+    return selected === "native" ? "native" : "serper";
+  })(),
   max_serper_results: Math.max(1, Number(config?.max_serper_results ?? 6)),
   max_fetch_urls: Math.max(1, Number(config?.max_fetch_urls ?? 2)),
   timeout_seconds: Math.max(1, Number(config?.timeout_seconds ?? 4)),
+  scrapegraph_timeout_seconds: Math.max(1, Number(config?.scrapegraph_timeout_seconds ?? 20)),
+  scrapegraph_engine:
+    SCRAPEGRAPH_ENGINE_OPTIONS.includes(String(config?.scrapegraph_engine || "direct") as ScrapegraphEngine)
+      ? (String(config?.scrapegraph_engine) as ScrapegraphEngine)
+      : ("direct" as ScrapegraphEngine),
+  scrapegraph_mode:
+    SCRAPEGRAPH_MODE_OPTIONS.includes(String(config?.scrapegraph_mode || "cloud") as ScrapegraphMode)
+      ? (String(config?.scrapegraph_mode) as ScrapegraphMode)
+      : ("cloud" as ScrapegraphMode),
+  scrapegraph_llm_provider: String(config?.scrapegraph_llm_provider || "openai"),
+  scrapegraph_llm_model: String(config?.scrapegraph_llm_model || "gpt-4o-mini"),
+  cache_ttl_seconds: Math.max(60, Number(config?.cache_ttl_seconds ?? 604800)),
+  verified_fresh_days: Math.max(1, Number(config?.verified_fresh_days ?? 30)),
+  routing_mode:
+    ROUTING_MODE_OPTIONS.includes(String(config?.routing_mode || "auto") as RoutingMode)
+      ? (String(config?.routing_mode) as RoutingMode)
+      : ("auto" as RoutingMode),
 });
 
 export default function ToolsSettings() {
@@ -67,10 +154,17 @@ export default function ToolsSettings() {
   const deleteToolMutation = useDeleteTool();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ToolForm>(defaultForm);
+  const [providerHealthLoading, setProviderHealthLoading] = useState(false);
+  const [providerHealthResults, setProviderHealthResults] = useState<
+    Array<{ provider: string; status: string; message: string }>
+  >([]);
+  const [providerHealthOverall, setProviderHealthOverall] = useState("");
 
   const resetForm = () => {
     setEditingId(null);
     setForm(defaultForm);
+    setProviderHealthResults([]);
+    setProviderHealthOverall("");
   };
 
   const toolKind = getToolKind(form.name);
@@ -130,6 +224,26 @@ export default function ToolsSettings() {
       if (editingId === id) resetForm();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to delete tool.");
+    }
+  };
+
+  const runProviderHealthCheck = async () => {
+    if (!isEmailScraper && !isPhoneScraper) return;
+    setProviderHealthLoading(true);
+    try {
+      const response = await fetch(backendRoutes.tools.providerHealth(form.name));
+      if (!response.ok) throw new Error(`Failed with status ${response.status}`);
+      const payload = (await response.json()) as {
+        overall_status?: string;
+        results?: Array<{ provider: string; status: string; message: string }>;
+      };
+      setProviderHealthOverall(String(payload.overall_status || ""));
+      setProviderHealthResults(Array.isArray(payload.results) ? payload.results : []);
+      toast.success("Provider health check completed.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to check provider health.");
+    } finally {
+      setProviderHealthLoading(false);
     }
   };
 
@@ -203,18 +317,23 @@ export default function ToolsSettings() {
         </div>
         {isPhoneScraper && (
           <div className="rounded-lg border border-border p-4 space-y-4">
-            <h4 className="text-sm font-medium text-foreground">Phone Scraper Config</h4>
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="text-sm font-medium text-foreground">Phone Scraper Config</h4>
+              <Button variant="outline" size="sm" onClick={runProviderHealthCheck} disabled={providerHealthLoading}>
+                {providerHealthLoading ? "Checking..." : "Check Providers"}
+              </Button>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Search Provider</Label>
+                <Label>Selected Provider (single run)</Label>
                 <Select
                   value={
-                    ((form.config as Record<string, unknown> | undefined)?.search_provider as string) || "native"
+                    ((form.config as Record<string, unknown> | undefined)?.selected_provider as string) || "native"
                   }
                   onValueChange={(value) =>
                     setForm((prev) => ({
                       ...prev,
-                      config: { ...(prev.config ?? {}), search_provider: value },
+                      config: { ...(prev.config ?? {}), selected_provider: value },
                     }))
                   }
                 >
@@ -225,6 +344,109 @@ export default function ToolsSettings() {
                     <SelectItem value="native">Native Fetch</SelectItem>
                     <SelectItem value="serper">Serper</SelectItem>
                     <SelectItem value="scrapegraph">ScrapeGraphAI</SelectItem>
+                    <SelectItem value="apollo">Apollo</SelectItem>
+                    <SelectItem value="rocketreach">RocketReach</SelectItem>
+                    <SelectItem value="brave">Brave Search</SelectItem>
+                    <SelectItem value="google_places">Google Places</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {((form.config as Record<string, unknown> | undefined)?.selected_provider as string) === "scrapegraph" && (
+                <>
+                  <div className="space-y-2">
+                    <Label>ScrapeGraph Engine</Label>
+                    <Select
+                      value={
+                        ((form.config as Record<string, unknown> | undefined)?.scrapegraph_engine as string) || "direct"
+                      }
+                      onValueChange={(value) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          config: { ...(prev.config ?? {}), scrapegraph_engine: value },
+                        }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="direct">Direct</SelectItem>
+                        <SelectItem value="serper">Serper</SelectItem>
+                        <SelectItem value="searxng">SearXNG</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>ScrapeGraph Mode</Label>
+                    <Select
+                      value={
+                        ((form.config as Record<string, unknown> | undefined)?.scrapegraph_mode as string) || "cloud"
+                      }
+                      onValueChange={(value) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          config: { ...(prev.config ?? {}), scrapegraph_mode: value },
+                        }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cloud">Cloud API</SelectItem>
+                        <SelectItem value="local">Local endpoint</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="phone-sg-llm-provider">ScrapeGraph LLM Provider</Label>
+                    <Input
+                      id="phone-sg-llm-provider"
+                      value={String((form.config as Record<string, unknown> | undefined)?.scrapegraph_llm_provider ?? "openai")}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          config: { ...(prev.config ?? {}), scrapegraph_llm_provider: e.target.value || "openai" },
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="phone-sg-llm-model">ScrapeGraph LLM Model</Label>
+                    <Input
+                      id="phone-sg-llm-model"
+                      value={String((form.config as Record<string, unknown> | undefined)?.scrapegraph_llm_model ?? "gpt-4o-mini")}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          config: { ...(prev.config ?? {}), scrapegraph_llm_model: e.target.value || "gpt-4o-mini" },
+                        }))
+                      }
+                    />
+                  </div>
+                </>
+              )}
+              <div className="space-y-2">
+                <Label>Routing Mode</Label>
+                <Select
+                  value={
+                    ((form.config as Record<string, unknown> | undefined)?.routing_mode as string) || "auto"
+                  }
+                  onValueChange={(value) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      config: { ...(prev.config ?? {}), routing_mode: value },
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto (managed -&gt; proxy -&gt; direct)</SelectItem>
+                    <SelectItem value="managed">Managed unlocker only</SelectItem>
+                    <SelectItem value="proxy">Proxy only</SelectItem>
+                    <SelectItem value="direct">Direct only</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -294,22 +516,43 @@ export default function ToolsSettings() {
                 />
               </div>
             </div>
+            {providerHealthResults.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">Provider health: {providerHealthOverall || "unknown"}</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {providerHealthResults.map((item) => (
+                    <div key={item.provider} className="rounded border border-border px-3 py-2 flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{item.provider}</p>
+                        <p className="text-xs text-muted-foreground">{item.message}</p>
+                      </div>
+                      <Badge variant="outline">{item.status}</Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
         {isEmailScraper && (
           <div className="rounded-lg border border-border p-4 space-y-4">
-            <h4 className="text-sm font-medium text-foreground">Email Scraper Config</h4>
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="text-sm font-medium text-foreground">Email Scraper Config</h4>
+              <Button variant="outline" size="sm" onClick={runProviderHealthCheck} disabled={providerHealthLoading}>
+                {providerHealthLoading ? "Checking..." : "Check Providers"}
+              </Button>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Search Provider</Label>
+                <Label>Selected Provider (single run)</Label>
                 <Select
                   value={
-                    ((form.config as Record<string, unknown> | undefined)?.search_provider as string) || "serper"
+                    ((form.config as Record<string, unknown> | undefined)?.selected_provider as string) || "native"
                   }
                   onValueChange={(value) =>
                     setForm((prev) => ({
                       ...prev,
-                      config: { ...(prev.config ?? {}), search_provider: value },
+                      config: { ...(prev.config ?? {}), selected_provider: value },
                     }))
                   }
                 >
@@ -317,8 +560,113 @@ export default function ToolsSettings() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="apollo">Apollo</SelectItem>
+                    <SelectItem value="hunter">Hunter</SelectItem>
+                    <SelectItem value="rocketreach">RocketReach</SelectItem>
+                    <SelectItem value="coresignal">Coresignal</SelectItem>
+                    <SelectItem value="brightdata">BrightData</SelectItem>
+                    <SelectItem value="scrapegraph">ScrapeGraphAI</SelectItem>
                     <SelectItem value="serper">Serper</SelectItem>
                     <SelectItem value="native">Native Fetch</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {((form.config as Record<string, unknown> | undefined)?.selected_provider as string) === "scrapegraph" && (
+                <>
+                  <div className="space-y-2">
+                    <Label>ScrapeGraph Engine</Label>
+                    <Select
+                      value={
+                        ((form.config as Record<string, unknown> | undefined)?.scrapegraph_engine as string) || "direct"
+                      }
+                      onValueChange={(value) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          config: { ...(prev.config ?? {}), scrapegraph_engine: value },
+                        }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="direct">Direct</SelectItem>
+                        <SelectItem value="serper">Serper</SelectItem>
+                        <SelectItem value="searxng">SearXNG</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>ScrapeGraph Mode</Label>
+                    <Select
+                      value={
+                        ((form.config as Record<string, unknown> | undefined)?.scrapegraph_mode as string) || "cloud"
+                      }
+                      onValueChange={(value) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          config: { ...(prev.config ?? {}), scrapegraph_mode: value },
+                        }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cloud">Cloud API</SelectItem>
+                        <SelectItem value="local">Local endpoint</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email-sg-llm-provider">ScrapeGraph LLM Provider</Label>
+                    <Input
+                      id="email-sg-llm-provider"
+                      value={String((form.config as Record<string, unknown> | undefined)?.scrapegraph_llm_provider ?? "openai")}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          config: { ...(prev.config ?? {}), scrapegraph_llm_provider: e.target.value || "openai" },
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email-sg-llm-model">ScrapeGraph LLM Model</Label>
+                    <Input
+                      id="email-sg-llm-model"
+                      value={String((form.config as Record<string, unknown> | undefined)?.scrapegraph_llm_model ?? "gpt-4o-mini")}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          config: { ...(prev.config ?? {}), scrapegraph_llm_model: e.target.value || "gpt-4o-mini" },
+                        }))
+                      }
+                    />
+                  </div>
+                </>
+              )}
+              <div className="space-y-2">
+                <Label>Routing Mode</Label>
+                <Select
+                  value={
+                    ((form.config as Record<string, unknown> | undefined)?.routing_mode as string) || "auto"
+                  }
+                  onValueChange={(value) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      config: { ...(prev.config ?? {}), routing_mode: value },
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto (managed -&gt; proxy -&gt; direct)</SelectItem>
+                    <SelectItem value="managed">Managed unlocker only</SelectItem>
+                    <SelectItem value="proxy">Proxy only</SelectItem>
+                    <SelectItem value="direct">Direct only</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -367,7 +715,89 @@ export default function ToolsSettings() {
                   }
                 />
               </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="email-provider-order">
+                  Provider Order (comma-separated)
+                </Label>
+                <Input
+                  id="email-provider-order"
+                  value={(() => {
+                    const configured = (form.config as Record<string, unknown> | undefined)
+                      ?.provider_order;
+                    return Array.isArray(configured)
+                      ? configured.map((value) => String(value)).join(", ")
+                      : EMAIL_PROVIDER_OPTIONS.join(", ");
+                  })()}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      config: {
+                        ...(prev.config ?? {}),
+                        provider_order: e.target.value
+                          .split(",")
+                          .map((item) => item.trim().toLowerCase())
+                          .filter(Boolean),
+                      },
+                    }))
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Allowed values: {EMAIL_PROVIDER_OPTIONS.join(", ")}
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email-cache-ttl-seconds">Cache TTL (seconds)</Label>
+                <Input
+                  id="email-cache-ttl-seconds"
+                  type="number"
+                  min={60}
+                  value={String((form.config as Record<string, unknown> | undefined)?.cache_ttl_seconds ?? 604800)}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      config: {
+                        ...(prev.config ?? {}),
+                        cache_ttl_seconds: Number(e.target.value || 604800),
+                      },
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email-verified-fresh-days">Verified Freshness (days)</Label>
+                <Input
+                  id="email-verified-fresh-days"
+                  type="number"
+                  min={1}
+                  value={String((form.config as Record<string, unknown> | undefined)?.verified_fresh_days ?? 30)}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      config: {
+                        ...(prev.config ?? {}),
+                        verified_fresh_days: Number(e.target.value || 30),
+                      },
+                    }))
+                  }
+                />
+              </div>
             </div>
+            {providerHealthResults.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">Provider health: {providerHealthOverall || "unknown"}</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {providerHealthResults.map((item) => (
+                    <div key={item.provider} className="rounded border border-border px-3 py-2 flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{item.provider}</p>
+                        <p className="text-xs text-muted-foreground">{item.message}</p>
+                      </div>
+                      <Badge variant="outline">{item.status}</Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
         <div className="flex gap-2">

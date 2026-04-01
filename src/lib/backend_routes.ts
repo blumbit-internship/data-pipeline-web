@@ -13,8 +13,14 @@ export const backendRoutes = {
     list: `${API_URL}/tools`,
     detail: (id: string) => `${API_URL}/tools/${id}`,
     process: `${API_URL}/tools/process`,
+    providerHealth: (toolName: string) => `${API_URL}/tools/provider-health?tool_name=${encodeURIComponent(toolName)}`,
   },
   jobs: {
     list: `${API_URL}/jobs`,
+    detail: (id: string) => `${API_URL}/jobs/${id}`,
+    outputPreview: (id: string) => `${API_URL}/jobs/${id}/output-preview`,
+    cancel: (id: string) => `${API_URL}/jobs/${id}/cancel`,
+    resume: (id: string) => `${API_URL}/jobs/${id}/resume`,
+    delete: (id: string) => `${API_URL}/jobs/${id}`,
   },
 };

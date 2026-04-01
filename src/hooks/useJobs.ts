@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { backendRoutes } from "@/lib/backend_routes";
 
-export type JobStatus = "new" | "processing" | "completed" | "error";
+export type JobStatus = "new" | "processing" | "completed" | "error" | "cancelled";
 export type ToolType = string;
 
 export interface StartJobInput {
   file: File | null;
   sheetsUrl: string;
   toolType: ToolType;
+  selectedProvider?: string;
 }
 
 export interface Job {
@@ -18,6 +19,7 @@ export interface Job {
   progress: number;
   status: JobStatus;
   totalRows: number;
+  statusCounts?: Record<string, number>;
   downloadUrl?: string;
   errorMessage?: string;
   processingTimeSeconds?: number;
@@ -39,6 +41,7 @@ interface ApiJob {
   status: JobStatus;
   progress: number;
   totalRows: number;
+  statusCounts?: Record<string, number>;
   downloadUrl?: string;
   errorMessage?: string;
   createdAt: string;
@@ -75,6 +78,7 @@ export function useJobs() {
           progress: job.progress,
           status: job.status,
           totalRows: job.totalRows,
+          statusCounts: job.statusCounts || {},
           downloadUrl: job.downloadUrl,
           errorMessage: job.errorMessage,
           processingTimeSeconds: job.processingTimeSeconds || 0,
@@ -89,7 +93,14 @@ export function useJobs() {
     loadJobs();
   }, [loadJobs]);
 
-  const addJob = useCallback(async ({ file, sheetsUrl, toolType }: StartJobInput) => {
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      loadJobs();
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [loadJobs]);
+
+  const addJob = useCallback(async ({ file, sheetsUrl, toolType, selectedProvider }: StartJobInput) => {
     const fileName = file?.name || sheetsUrl || "Untitled";
     const newJob: Job = {
       id: crypto.randomUUID(),
@@ -123,6 +134,9 @@ export function useJobs() {
       formData.append("tool_name", toolType);
       if (file) formData.append("file", file);
       if (sheetsUrl) formData.append("sheets_url", sheetsUrl);
+      if (selectedProvider && selectedProvider !== "tool_default") {
+        formData.append("selected_provider", selectedProvider);
+      }
 
       const response = await fetch(backendRoutes.tools.process, {
         method: "POST",
@@ -154,30 +168,61 @@ export function useJobs() {
     }
   }, [loadJobs]);
 
-  const stopJob = useCallback((id: string) => {
-    setJobs((prev) =>
-      prev.map((j) =>
-        j.id === id && j.status === "processing"
-          ? { ...j, status: "error", errorMessage: "Stopped manually." }
-          : j,
-      ),
-    );
-  }, []);
+  const stopJob = useCallback(async (id: string) => {
+    try {
+      const response = await fetch(backendRoutes.jobs.cancel(id), { method: "POST" });
+      if (!response.ok) {
+        throw new Error(`Failed to cancel job (${response.status})`);
+      }
+      await loadJobs();
+    } catch (error) {
+      setJobs((prev) =>
+        prev.map((j) =>
+          j.id === id && j.status === "processing"
+            ? {
+                ...j,
+                status: "error",
+                errorMessage: error instanceof Error ? error.message : "Failed to cancel job.",
+              }
+            : j,
+        ),
+      );
+    }
+  }, [loadJobs]);
 
-  const restartJob = useCallback((id: string) => {
-    setJobs((prev) =>
-      prev.map((j) =>
-        j.id === id
-          ? {
-              ...j,
-              status: "error",
-              progress: 0,
-              errorMessage: "Re-upload the file to retry.",
-            }
-          : j,
-      ),
-    );
-  }, []);
+  const restartJob = useCallback(async (
+    id: string,
+    opts?: { retryFailedOnly?: boolean; selectedProvider?: string; retryStatusBuckets?: string[] },
+  ) => {
+    const payload: Record<string, unknown> = {};
+    if (opts?.retryFailedOnly) payload.retry_failed_only = true;
+    if (opts?.selectedProvider) payload.selected_provider = opts.selectedProvider;
+    if (opts?.retryStatusBuckets && opts.retryStatusBuckets.length > 0) {
+      payload.retry_status_buckets = opts.retryStatusBuckets;
+    }
+    const response = await fetch(backendRoutes.jobs.resume(id), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      throw new Error(payload?.message || `Failed to resume job (${response.status})`);
+    }
+    await loadJobs();
+  }, [loadJobs]);
 
-  return { jobs, addJob, stopJob, restartJob, reloadJobs: loadJobs };
+  const deleteJob = useCallback(async (id: string) => {
+    const previous = jobs;
+    setJobs((prev) => prev.filter((j) => j.id !== id));
+    const response = await fetch(backendRoutes.jobs.delete(id), { method: "DELETE" });
+    if (!response.ok) {
+      setJobs(previous);
+      const payload = await response.json().catch(() => null);
+      throw new Error(payload?.message || `Failed to delete job (${response.status})`);
+    }
+    await loadJobs();
+  }, [jobs, loadJobs]);
+
+  return { jobs, addJob, stopJob, restartJob, deleteJob, reloadJobs: loadJobs };
 }

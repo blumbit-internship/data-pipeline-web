@@ -1,6 +1,7 @@
 import { format } from "date-fns";
-import { Download, StopCircle, RotateCcw } from "lucide-react";
+import { Download, StopCircle, RotateCcw, Eye, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -20,15 +21,18 @@ const statusConfig: Record<JobStatus, { label: string; className: string }> = {
   processing: { label: "Processing", className: "bg-primary/10 text-primary border-transparent" },
   completed: { label: "Completed", className: "bg-success/10 text-success border-transparent" },
   error: { label: "Error", className: "bg-destructive/10 text-destructive border-transparent" },
+  cancelled: { label: "Cancelled", className: "bg-warning/10 text-warning border-transparent" },
 };
 
 interface JobTableProps {
   jobs: Job[];
-  onStop: (id: string) => void;
-  onRestart: (id: string) => void;
+  onStop: (id: string) => Promise<void>;
+  onRestart: (id: string, opts?: { retryFailedOnly?: boolean }) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
 }
 
-export function JobTable({ jobs, onStop, onRestart }: JobTableProps) {
+export function JobTable({ jobs, onStop, onRestart, onDelete }: JobTableProps) {
+  const navigate = useNavigate();
   const formatDuration = (seconds?: number) => {
     const s = Math.max(0, Number(seconds || 0));
     if (s < 60) return `${s}s`;
@@ -71,8 +75,11 @@ export function JobTable({ jobs, onStop, onRestart }: JobTableProps) {
         <TableBody>
           {jobs.map((job) => {
             const sc = statusConfig[job.status];
+            const hasFailedRows = Object.entries(job.statusCounts || {}).some(
+              ([key, value]) => key.trim().toLowerCase() !== "ok" && Number(value || 0) > 0,
+            );
             return (
-              <TableRow key={job.id}>
+              <TableRow key={job.id} className="cursor-pointer" onClick={() => navigate(`/jobs/${job.id}`)}>
                 <TableCell className="font-medium text-foreground truncate max-w-[200px]">
                   {job.fileName}
                 </TableCell>
@@ -100,13 +107,46 @@ export function JobTable({ jobs, onStop, onRestart }: JobTableProps) {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Details"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/jobs/${job.id}`);
+                      }}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
                     {job.status === "processing" && (
-                      <Button variant="ghost" size="icon" onClick={() => onStop(job.id)} title="Stop">
+                      <Button variant="ghost" size="icon" onClick={(e) => {
+                        e.stopPropagation();
+                        void onStop(job.id);
+                      }} title="Stop">
                         <StopCircle className="h-4 w-4 text-destructive" />
                       </Button>
                     )}
                     {job.status === "error" && (
-                      <Button variant="ghost" size="icon" onClick={() => onRestart(job.id)} title="Restart">
+                      <Button variant="ghost" size="icon" onClick={(e) => {
+                        e.stopPropagation();
+                        void onRestart(job.id);
+                      }} title="Restart">
+                        <RotateCcw className="h-4 w-4 text-primary" />
+                      </Button>
+                    )}
+                    {job.status === "cancelled" && (
+                      <Button variant="ghost" size="icon" onClick={(e) => {
+                        e.stopPropagation();
+                        void onRestart(job.id);
+                      }} title="Resume">
+                        <RotateCcw className="h-4 w-4 text-primary" />
+                      </Button>
+                    )}
+                    {job.status === "completed" && hasFailedRows && (
+                      <Button variant="ghost" size="icon" onClick={(e) => {
+                        e.stopPropagation();
+                        void onRestart(job.id, { retryFailedOnly: true });
+                      }} title="Retry Failed">
                         <RotateCcw className="h-4 w-4 text-primary" />
                       </Button>
                     )}
@@ -115,9 +155,27 @@ export function JobTable({ jobs, onStop, onRestart }: JobTableProps) {
                         variant="ghost"
                         size="icon"
                         title="Download"
-                        onClick={() => handleDownload(job.downloadUrl)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownload(job.downloadUrl);
+                        }}
                       >
                         <Download className="h-4 w-4 text-success" />
+                      </Button>
+                    )}
+                    {job.status !== "processing" && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Delete"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm("Delete this job and its files?")) {
+                            void onDelete(job.id);
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     )}
                   </div>

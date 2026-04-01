@@ -21,6 +21,7 @@ export function FileUploadPanel({ onStartJob }: FileUploadPanelProps) {
   const [file, setFile] = useState<File | null>(null);
   const [sheetsUrl, setSheetsUrl] = useState("");
   const [tool, setTool] = useState<ToolType>("");
+  const [selectedProvider, setSelectedProvider] = useState<string>("tool_default");
   const [dragging, setDragging] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -30,6 +31,13 @@ export function FileUploadPanel({ onStartJob }: FileUploadPanelProps) {
     isError: isToolsError,
   } = useAvailableTools();
   const selectedTool = tools.find((t) => t.name === tool);
+  const toolKind = (selectedTool?.name || "").toLowerCase();
+  const providerOptions =
+    toolKind === "email-scraper"
+      ? ["apollo", "hunter", "rocketreach", "coresignal", "brightdata", "scrapegraph", "serper", "native"]
+      : toolKind === "phone-scraper"
+        ? ["native", "serper", "scrapegraph", "apollo", "rocketreach", "brave", "google_places"]
+        : [];
 
   useEffect(() => {
     if (tools.length > 0 && !tool) {
@@ -48,6 +56,10 @@ export function FileUploadPanel({ onStartJob }: FileUploadPanelProps) {
       setSheetsUrl("");
     }
   }, [selectedTool, sheetsUrl]);
+
+  useEffect(() => {
+    setSelectedProvider("tool_default");
+  }, [tool]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -77,7 +89,7 @@ export function FileUploadPanel({ onStartJob }: FileUploadPanelProps) {
     }
 
     setSubmitting(true);
-    await onStartJob({ file, sheetsUrl, toolType: tool });
+    await onStartJob({ file, sheetsUrl, toolType: tool, selectedProvider });
     setSubmitting(false);
     setFile(null);
     setSheetsUrl("");
@@ -164,6 +176,21 @@ export function FileUploadPanel({ onStartJob }: FileUploadPanelProps) {
             ))}
           </SelectContent>
         </Select>
+        {providerOptions.length > 0 && (
+          <Select value={selectedProvider} onValueChange={setSelectedProvider}>
+            <SelectTrigger className="w-64">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="tool_default">Use tool default provider</SelectItem>
+              {providerOptions.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         <Button
           onClick={handleStart}
           disabled={!hasInput || submitting || loadingTools || tools.length === 0}

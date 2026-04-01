@@ -1,19 +1,56 @@
-export type PhoneSearchProvider = "native" | "serper" | "scrapegraph";
+export type PhoneSearchProvider =
+  | "native"
+  | "serper"
+  | "scrapegraph"
+  | "apollo"
+  | "rocketreach"
+  | "brave"
+  | "google_places";
 export type EmailSearchProvider = "native" | "serper";
+export type RoutingMode = "auto" | "managed" | "proxy" | "direct";
+export type ScrapegraphEngine = "direct" | "serper" | "searxng";
+export type ScrapegraphMode = "cloud" | "local";
+export type EmailEnrichmentProvider =
+  | "apollo"
+  | "hunter"
+  | "rocketreach"
+  | "coresignal"
+  | "brightdata"
+  | "scrapegraph"
+  | "serper"
+  | "native";
 
 export interface PhoneScraperToolConfig {
   search_provider?: PhoneSearchProvider;
+  selected_provider?: PhoneSearchProvider | "";
   max_serper_results?: number;
   max_fetch_urls?: number;
   timeout_seconds?: number;
   scrapegraph_timeout_seconds?: number;
+  scrapegraph_engine?: ScrapegraphEngine;
+  scrapegraph_mode?: ScrapegraphMode;
+  scrapegraph_llm_provider?: string;
+  scrapegraph_llm_model?: string;
+  cache_ttl_seconds?: number;
+  verified_fresh_days?: number;
+  routing_mode?: RoutingMode;
 }
 
 export interface EmailScraperToolConfig {
   search_provider?: EmailSearchProvider;
+  selected_provider?: EmailEnrichmentProvider | "";
+  provider_order?: EmailEnrichmentProvider[];
   max_serper_results?: number;
   max_fetch_urls?: number;
   timeout_seconds?: number;
+  scrapegraph_timeout_seconds?: number;
+  scrapegraph_engine?: ScrapegraphEngine;
+  scrapegraph_mode?: ScrapegraphMode;
+  scrapegraph_llm_provider?: string;
+  scrapegraph_llm_model?: string;
+  cache_ttl_seconds?: number;
+  verified_fresh_days?: number;
+  routing_mode?: RoutingMode;
 }
 
 export interface ToolDefinition {

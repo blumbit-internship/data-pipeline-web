@@ -4,8 +4,12 @@ import { useJobs, type Job, type StartJobInput } from "@/hooks/useJobs";
 interface JobsContextType {
   jobs: Job[];
   addJob: (input: StartJobInput) => Promise<void>;
-  stopJob: (id: string) => void;
-  restartJob: (id: string) => void;
+  stopJob: (id: string) => Promise<void>;
+  restartJob: (
+    id: string,
+    opts?: { retryFailedOnly?: boolean; selectedProvider?: string; retryStatusBuckets?: string[] },
+  ) => Promise<void>;
+  deleteJob: (id: string) => Promise<void>;
   reloadJobs: () => Promise<void>;
 }
 

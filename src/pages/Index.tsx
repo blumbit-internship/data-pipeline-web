@@ -35,7 +35,7 @@ function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType
 }
 
 const Index = () => {
-  const { jobs, addJob, stopJob, restartJob } = useJobsContext();
+  const { jobs, addJob, stopJob, restartJob, deleteJob } = useJobsContext();
   const { data: tools = [] } = useAvailableTools();
   const [tableJobs, setTableJobs] = useState<Job[]>([]);
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
@@ -58,6 +58,7 @@ const Index = () => {
     status: JobStatus;
     progress: number;
     totalRows: number;
+    statusCounts?: Record<string, number>;
     downloadUrl?: string;
     errorMessage?: string;
     createdAt: string;
@@ -95,6 +96,7 @@ const Index = () => {
           progress: job.progress,
           status: job.status,
           totalRows: job.totalRows,
+          statusCounts: job.statusCounts || {},
           downloadUrl: job.downloadUrl,
           errorMessage: job.errorMessage,
           processingTimeSeconds: job.processingTimeSeconds || 0,
@@ -121,6 +123,20 @@ const Index = () => {
   const handleStartJob = async (input: StartJobInput) => {
     await addJob(input);
     await loadJobs();
+  };
+
+  const handleDeleteJob = async (id: string) => {
+    const previousRows = tableJobs;
+    setTableJobs((prev) => prev.filter((j) => j.id !== id));
+    setTotal((prev) => Math.max(0, prev - 1));
+    try {
+      await deleteJob(id);
+      await loadJobs();
+    } catch (error) {
+      setTableJobs(previousRows);
+      setTotal((prev) => prev + 1);
+      toast.error(error instanceof Error ? error.message : "Failed to delete job.");
+    }
   };
 
   const paginationItems = useMemo(() => {
@@ -170,6 +186,7 @@ const Index = () => {
                 <SelectItem value="processing">Processing</SelectItem>
                 <SelectItem value="completed">Completed</SelectItem>
                 <SelectItem value="error">Error</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
             <Select value={toolFilter} onValueChange={setToolFilter}>
@@ -204,7 +221,7 @@ const Index = () => {
             </div>
           ) : (
             <>
-              <JobTable jobs={tableJobs} onStop={stopJob} onRestart={restartJob} />
+              <JobTable jobs={tableJobs} onStop={stopJob} onRestart={restartJob} onDelete={handleDeleteJob} />
               <div className="mt-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <p className="text-xs text-muted-foreground">
                   Showing page {page} of {totalPages} ({total.toLocaleString()} jobs)
