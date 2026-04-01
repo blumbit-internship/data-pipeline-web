@@ -532,6 +532,9 @@ export default function ToolsSettings() {
                 </div>
               </div>
             )}
+            <p className="text-xs text-muted-foreground">
+              Veriphone is a phone validation layer (post-check), not a selected scraping provider. It runs automatically when <code>VERIPHONE_API_KEY</code> is set.
+            </p>
           </div>
         )}
         {isEmailScraper && (

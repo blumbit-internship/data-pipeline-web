@@ -146,6 +146,10 @@ export default function JobDetails() {
       }, 0),
     [statusItems],
   );
+  const noUniqueCount = useMemo(() => {
+    const bucket = statusItems.find(([key]) => key.trim().toLowerCase() === "no unique phone");
+    return Number(bucket?.[1] || 0);
+  }, [statusItems]);
   const cannotVerifyCount = useMemo(() => {
     const bucket = statusItems.find(([key]) => key.trim().toLowerCase() === "cannot verify");
     return Number(bucket?.[1] || 0);
@@ -195,20 +199,32 @@ export default function JobDetails() {
   const retryScopeOptions = useMemo(() => {
     if (toolKind === "email-scraper") {
       return [
-        { id: "failed_all", label: "All failed rows", buckets: [] },
+        { id: "failed_all", label: "All failed rows", buckets: ["no email found", "cannot verify"] },
         { id: "no_email_found", label: "Only 'no email found'", buckets: ["no email found"] },
         { id: "cannot_verify", label: "Only 'cannot verify'", buckets: ["cannot verify"] },
       ];
     }
     if (toolKind === "phone-scraper") {
       return [
-        { id: "failed_all", label: "All failed rows", buckets: [] },
-        { id: "no_phone_found", label: "Only 'no phone found'", buckets: ["no phone found"] },
+        { id: "failed_all", label: "All failed rows", buckets: ["no phone found", "no unique phone", "cannot verify"] },
+        { id: "no_phone_found", label: "Only 'no phone found' (recommended)", buckets: ["no phone found"] },
         { id: "no_unique_phone", label: "Only 'no unique phone'", buckets: ["no unique phone"] },
         { id: "cannot_verify", label: "Only 'cannot verify'", buckets: ["cannot verify"] },
       ];
     }
     return [{ id: "failed_all", label: "All failed rows", buckets: [] }];
+  }, [toolKind]);
+
+  useEffect(() => {
+    if (toolKind === "phone-scraper") {
+      setRetryScope("no_phone_found");
+      return;
+    }
+    if (toolKind === "email-scraper") {
+      setRetryScope("no_email_found");
+      return;
+    }
+    setRetryScope("failed_all");
   }, [toolKind]);
 
   const triggerResume = async (retryFailedOnly: boolean) => {
@@ -504,7 +520,7 @@ export default function JobDetails() {
                   <CardTitle className="text-base">Output Rows</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
                     <div className="rounded border border-border px-3 py-2">
                       <p className="text-xs text-muted-foreground">Found</p>
                       <p className="text-base font-medium text-foreground">{foundCount.toLocaleString()}</p>
@@ -516,6 +532,10 @@ export default function JobDetails() {
                     <div className="rounded border border-border px-3 py-2">
                       <p className="text-xs text-muted-foreground">Cannot Verify</p>
                       <p className="text-base font-medium text-foreground">{cannotVerifyCount.toLocaleString()}</p>
+                    </div>
+                    <div className="rounded border border-border px-3 py-2">
+                      <p className="text-xs text-muted-foreground">No Unique</p>
+                      <p className="text-base font-medium text-foreground">{noUniqueCount.toLocaleString()}</p>
                     </div>
                     <div className="rounded border border-border px-3 py-2">
                       <p className="text-xs text-muted-foreground">Processed</p>
