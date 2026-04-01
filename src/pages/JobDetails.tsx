@@ -173,7 +173,7 @@ export default function JobDetails() {
   const isDataValidation = toolKind === "data-validation";
   const providerOptions = useMemo(() => {
     if (toolKind === "email-scraper") {
-      return ["tool_default", "scrapegraph", "serper", "native", "apollo", "hunter", "snov", "prospeo", "rocketreach", "coresignal", "brightdata"];
+      return ["tool_default", "scrapegraph", "serper", "native", "apollo", "hunter", "snov", "prospeo", "anymailfinder", "voilanorbert", "getprospect", "rocketreach", "coresignal", "brightdata"];
     }
     if (toolKind === "phone-scraper") {
       return ["tool_default", "scrapegraph", "serper", "native", "apollo", "rocketreach", "brave", "google_places"];
@@ -191,6 +191,9 @@ export default function JobDetails() {
       hunter: "Hunter",
       snov: "Snov.io",
       prospeo: "Prospeo",
+      anymailfinder: "AnyMailFinder",
+      voilanorbert: "VoilaNorbert",
+      getprospect: "GetProspect",
       rocketreach: "RocketReach",
       coresignal: "Coresignal",
       brightdata: "BrightData",

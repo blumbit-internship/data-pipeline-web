@@ -51,6 +51,9 @@ const EMAIL_PROVIDER_OPTIONS: EmailEnrichmentProvider[] = [
   "hunter",
   "snov",
   "prospeo",
+  "anymailfinder",
+  "voilanorbert",
+  "getprospect",
   "rocketreach",
   "coresignal",
   "brightdata",
@@ -569,6 +572,9 @@ export default function ToolsSettings() {
                     <SelectItem value="hunter">Hunter</SelectItem>
                     <SelectItem value="snov">Snov.io</SelectItem>
                     <SelectItem value="prospeo">Prospeo</SelectItem>
+                    <SelectItem value="anymailfinder">AnyMailFinder</SelectItem>
+                    <SelectItem value="voilanorbert">VoilaNorbert</SelectItem>
+                    <SelectItem value="getprospect">GetProspect</SelectItem>
                     <SelectItem value="rocketreach">RocketReach</SelectItem>
                     <SelectItem value="coresignal">Coresignal</SelectItem>
                     <SelectItem value="brightdata">BrightData</SelectItem>

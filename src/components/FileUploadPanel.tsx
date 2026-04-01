@@ -34,7 +34,7 @@ export function FileUploadPanel({ onStartJob }: FileUploadPanelProps) {
   const toolKind = (selectedTool?.name || "").toLowerCase();
   const providerOptions =
     toolKind === "email-scraper"
-      ? ["apollo", "hunter", "snov", "prospeo", "rocketreach", "coresignal", "brightdata", "scrapegraph", "serper", "native"]
+      ? ["apollo", "hunter", "snov", "prospeo", "anymailfinder", "voilanorbert", "getprospect", "rocketreach", "coresignal", "brightdata", "scrapegraph", "serper", "native"]
       : toolKind === "phone-scraper"
         ? ["native", "serper", "scrapegraph", "apollo", "rocketreach", "brave", "google_places"]
         : [];
