@@ -172,7 +172,7 @@ export default function JobDetails() {
   const toolKind = (job?.toolName || "").toLowerCase();
   const providerOptions = useMemo(() => {
     if (toolKind === "email-scraper") {
-      return ["tool_default", "scrapegraph", "serper", "native", "apollo", "hunter", "rocketreach", "coresignal", "brightdata"];
+      return ["tool_default", "scrapegraph", "serper", "native", "apollo", "hunter", "snov", "prospeo", "rocketreach", "coresignal", "brightdata"];
     }
     if (toolKind === "phone-scraper") {
       return ["tool_default", "scrapegraph", "serper", "native", "apollo", "rocketreach", "brave", "google_places"];
@@ -188,6 +188,8 @@ export default function JobDetails() {
       native: "Native Fetch",
       apollo: "Apollo",
       hunter: "Hunter",
+      snov: "Snov.io",
+      prospeo: "Prospeo",
       rocketreach: "RocketReach",
       coresignal: "Coresignal",
       brightdata: "BrightData",
@@ -231,6 +233,9 @@ export default function JobDetails() {
     if (!id) return;
     setActionLoading(true);
     setActionType(retryFailedOnly ? "retry" : "resume");
+    const loadingToastId = toast.loading(
+      retryFailedOnly ? "Starting retry job..." : "Starting resume job...",
+    );
     try {
       const payload: Record<string, unknown> = {
         retry_failed_only: retryFailedOnly,
@@ -242,23 +247,19 @@ export default function JobDetails() {
           payload.retry_status_buckets = selectedScope.buckets;
         }
       }
-      const requestPromise = fetch(backendRoutes.jobs.resume(id), {
+      const response = await fetch(backendRoutes.jobs.resume(id), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      }).then(async (response) => {
-        const body = await response.json().catch(() => null);
-        if (!response.ok) {
-          throw new Error(body?.message || `Failed with status ${response.status}`);
-        }
-        return body;
       });
-      toast.promise(requestPromise, {
-        loading: retryFailedOnly ? "Starting retry job..." : "Starting resume job...",
-        success: retryFailedOnly ? "Retry (failed rows) started." : "Resume started.",
-        error: (err) => (err instanceof Error ? err.message : "Failed to resume job."),
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(body?.message || `Failed with status ${response.status}`);
+      }
+      toast.success(retryFailedOnly ? "Retry (failed rows) started." : "Resume started.", {
+        id: loadingToastId,
+        duration: 2200,
       });
-      const body = await requestPromise;
       const newJobId = body?.job?.id as string | undefined;
       if (newJobId) {
         navigate(`/jobs/${newJobId}`);
@@ -266,7 +267,10 @@ export default function JobDetails() {
         await loadJob(id, { silent: false, showToastOnError: true });
       }
     } catch (error) {
-      // toast.promise already handles error notifications
+      toast.error(error instanceof Error ? error.message : "Failed to resume job.", {
+        id: loadingToastId,
+        duration: 4000,
+      });
     } finally {
       setActionLoading(false);
       setActionType(null);

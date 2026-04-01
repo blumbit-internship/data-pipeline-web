@@ -49,6 +49,8 @@ const getToolKind = (name: string) => (name || "").trim().toLowerCase();
 const EMAIL_PROVIDER_OPTIONS: EmailEnrichmentProvider[] = [
   "apollo",
   "hunter",
+  "snov",
+  "prospeo",
   "rocketreach",
   "coresignal",
   "brightdata",
@@ -565,6 +567,8 @@ export default function ToolsSettings() {
                   <SelectContent>
                     <SelectItem value="apollo">Apollo</SelectItem>
                     <SelectItem value="hunter">Hunter</SelectItem>
+                    <SelectItem value="snov">Snov.io</SelectItem>
+                    <SelectItem value="prospeo">Prospeo</SelectItem>
                     <SelectItem value="rocketreach">RocketReach</SelectItem>
                     <SelectItem value="coresignal">Coresignal</SelectItem>
                     <SelectItem value="brightdata">BrightData</SelectItem>
@@ -801,6 +805,9 @@ export default function ToolsSettings() {
                 </div>
               </div>
             )}
+            <p className="text-xs text-muted-foreground">
+              MillionVerifier is an email verification layer (post-check), not a selected scraping provider. It runs automatically when <code>MILLIONVERIFIER_API_KEY</code> is set.
+            </p>
           </div>
         )}
         <div className="flex gap-2">

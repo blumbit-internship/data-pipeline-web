@@ -13,6 +13,8 @@ export type ScrapegraphMode = "cloud" | "local";
 export type EmailEnrichmentProvider =
   | "apollo"
   | "hunter"
+  | "snov"
+  | "prospeo"
   | "rocketreach"
   | "coresignal"
   | "brightdata"
