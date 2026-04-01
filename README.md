@@ -1,26 +1,35 @@
 # Data Pipeline Web
 
-React dashboard for starting processing jobs and downloading results.
+React + TypeScript control panel for running, monitoring, and retrying internship data tools.
 
-## Current Scope
+## Implemented Scope (current)
 
-- Tool dropdown is loaded dynamically from backend: `GET /api/tools/available`.
-- Tools are managed from frontend settings page via CRUD endpoints.
-- Phone scraper method is configurable in Tool Settings (`native` / `serper` / `scrapegraph`).
-- Email scraper method is configurable in Tool Settings (`native` / `serper`).
-- Tool config is stored per-tool in DB (`Tool.config`), so changing one tool does not change another.
-- Sends processing request to unified endpoint: `POST /api/tools/process`
-  with `tool_name` + payload.
-- Tracks job status in UI (`processing`, `completed`, `error`).
-- Downloads processed output workbook from backend response URL.
+- Dynamic tool loading from backend (`GET /api/tools/available`).
+- Tool Settings page with CRUD and per-tool config editing.
+- New Job panel with provider override selection per run.
+- Dashboard + History job tables with:
+  - details navigation
+  - stop/cancel
+  - retry/resume
+  - delete (output-only semantics from backend)
+  - download
+- Dedicated Job Details page with:
+  - live progress + status breakdown
+  - run context metadata (resume/retry info)
+  - provider health check panel
+  - output preview tab (filter + search + pagination)
+  - retry failed rows controls (provider + retry scope)
+- Optimistic delete behavior and periodic polling refresh.
 
 ## Setup
 
 ```bash
 cd repos/data-pipeline-web
 npm install
-npm run dev
+npm run dev -- --host 127.0.0.1 --port 5173
 ```
+
+App URL: `http://127.0.0.1:5173`
 
 ## Docker
 
@@ -28,8 +37,6 @@ npm run dev
 cd repos/data-pipeline-web
 docker compose up --build
 ```
-
-Frontend will be available at `http://127.0.0.1:5173`.
 
 ## Environment
 
@@ -39,7 +46,20 @@ Optional `.env`:
 VITE_API_URL=http://127.0.0.1:8000/api
 ```
 
-If not set, frontend falls back to `http://127.0.0.1:8000/api`.
+If unset, frontend defaults to `http://127.0.0.1:8000/api`.
+
+## Phone vs Email Provider UX
+
+The UI behavior is unified (same pages/controls), while provider lists are tool-specific:
+
+- **Email scraper providers**: `apollo`, `hunter`, `rocketreach`, `coresignal`, `brightdata`, `scrapegraph`, `serper`, `native`
+- **Phone scraper providers**: `native`, `serper`, `scrapegraph`, `apollo`, `rocketreach`, `brave`, `google_places`
+
+## Job Details UX Notes
+
+- During active processing, resume/retry controls are visible but disabled.
+- Output Preview tab is disabled until run completion.
+- Retry flow creates a new run and navigates to the new job page when started.
 
 ## Build
 
