@@ -170,6 +170,7 @@ export default function JobDetails() {
     [statusItems],
   );
   const toolKind = (job?.toolName || "").toLowerCase();
+  const isDataValidation = toolKind === "data-validation";
   const providerOptions = useMemo(() => {
     if (toolKind === "email-scraper") {
       return ["tool_default", "scrapegraph", "serper", "native", "apollo", "hunter", "snov", "prospeo", "rocketreach", "coresignal", "brightdata"];
@@ -385,48 +386,52 @@ export default function JobDetails() {
                   {job.errorMessage ? <p className="text-destructive">Error: {job.errorMessage}</p> : <p>Error: -</p>}
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant="outline"
-                    disabled={actionLoading || isJobActive}
-                    onClick={() => void triggerResume(false)}
-                    title={isJobActive ? "Wait until current run completes" : "Resume job"}
-                  >
-                    {actionLoading && actionType === "resume" ? "Starting Resume..." : "Resume Job"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    disabled={actionLoading || isJobActive}
-                    onClick={() => void triggerResume(true)}
-                    title={isJobActive ? "Wait until current run completes" : "Retry failed rows"}
-                  >
-                    {actionLoading && actionType === "retry" ? "Starting Retry..." : "Retry Failed Rows"}
-                  </Button>
-                  <>
-                    <Select value={providerOverride} onValueChange={setProviderOverride} disabled={isJobActive}>
-                      <SelectTrigger className="w-44">
-                        <SelectValue placeholder="Provider override" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {providerOptions.map((provider) => (
-                          <SelectItem key={provider} value={provider}>
-                            {providerLabel(provider)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Select value={retryScope} onValueChange={setRetryScope} disabled={isJobActive}>
-                      <SelectTrigger className="w-56">
-                        <SelectValue placeholder="Retry scope" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {retryScopeOptions.map((opt) => (
-                          <SelectItem key={opt.id} value={opt.id}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </>
+                  {!isDataValidation && (
+                    <>
+                      <Button
+                        variant="outline"
+                        disabled={actionLoading || isJobActive}
+                        onClick={() => void triggerResume(false)}
+                        title={isJobActive ? "Wait until current run completes" : "Resume job"}
+                      >
+                        {actionLoading && actionType === "resume" ? "Starting Resume..." : "Resume Job"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        disabled={actionLoading || isJobActive}
+                        onClick={() => void triggerResume(true)}
+                        title={isJobActive ? "Wait until current run completes" : "Retry failed rows"}
+                      >
+                        {actionLoading && actionType === "retry" ? "Starting Retry..." : "Retry Failed Rows"}
+                      </Button>
+                      <>
+                        <Select value={providerOverride} onValueChange={setProviderOverride} disabled={isJobActive}>
+                          <SelectTrigger className="w-44">
+                            <SelectValue placeholder="Provider override" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {providerOptions.map((provider) => (
+                              <SelectItem key={provider} value={provider}>
+                                {providerLabel(provider)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select value={retryScope} onValueChange={setRetryScope} disabled={isJobActive}>
+                          <SelectTrigger className="w-56">
+                            <SelectValue placeholder="Retry scope" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {retryScopeOptions.map((opt) => (
+                              <SelectItem key={opt.id} value={opt.id}>
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </>
+                    </>
+                  )}
                   {job.inputFile && (
                     <Button variant="outline" onClick={() => window.open(job.inputFile, "_blank", "noopener,noreferrer")}>
                       Open Input File
@@ -438,14 +443,19 @@ export default function JobDetails() {
                     </Button>
                   )}
                 </div>
-                {actionLoading && (
+                {actionLoading && !isDataValidation && (
                   <p className="text-xs text-muted-foreground">
                     {actionType === "retry" ? "Retry request is running..." : "Resume request is running..."} A new job page will open once it starts.
                   </p>
                 )}
-                {isJobActive && (
+                {isJobActive && !isDataValidation && (
                   <p className="text-xs text-muted-foreground">
                     Resume and retry actions are available after the current processing run completes.
+                  </p>
+                )}
+                {isDataValidation && (
+                  <p className="text-xs text-muted-foreground">
+                    Validation logic is rule-driven from input fields: <code>Req</code> (and <code>Comments</code> when present), plus <code>Sub Status</code> driven checks.
                   </p>
                 )}
               </CardContent>
@@ -524,28 +534,57 @@ export default function JobDetails() {
                   <CardTitle className="text-base">Output Rows</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-                    <div className="rounded border border-border px-3 py-2">
-                      <p className="text-xs text-muted-foreground">Found</p>
-                      <p className="text-base font-medium text-foreground">{foundCount.toLocaleString()}</p>
+                  {isDataValidation ? (
+                    <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+                      <div className="rounded border border-border px-3 py-2">
+                        <p className="text-xs text-muted-foreground">VALID</p>
+                        <p className="text-base font-medium text-foreground">{Number(job.statusCounts?.VALID || 0).toLocaleString()}</p>
+                      </div>
+                      <div className="rounded border border-border px-3 py-2">
+                        <p className="text-xs text-muted-foreground">INVALID</p>
+                        <p className="text-base font-medium text-foreground">{Number(job.statusCounts?.INVALID || 0).toLocaleString()}</p>
+                      </div>
+                      <div className="rounded border border-border px-3 py-2">
+                        <p className="text-xs text-muted-foreground">RECHECK</p>
+                        <p className="text-base font-medium text-foreground">{Number(job.statusCounts?.RECHECK || 0).toLocaleString()}</p>
+                      </div>
+                      <div className="rounded border border-border px-3 py-2">
+                        <p className="text-xs text-muted-foreground">DUPLICATE</p>
+                        <p className="text-base font-medium text-foreground">{Number(job.statusCounts?.DUPLICATE || 0).toLocaleString()}</p>
+                      </div>
+                      <div className="rounded border border-border px-3 py-2">
+                        <p className="text-xs text-muted-foreground">CANNOT_VERIFY</p>
+                        <p className="text-base font-medium text-foreground">{Number(job.statusCounts?.CANNOT_VERIFY || 0).toLocaleString()}</p>
+                      </div>
+                      <div className="rounded border border-border px-3 py-2">
+                        <p className="text-xs text-muted-foreground">Processed</p>
+                        <p className="text-base font-medium text-foreground">{processedRows.toLocaleString()}</p>
+                      </div>
                     </div>
-                    <div className="rounded border border-border px-3 py-2">
-                      <p className="text-xs text-muted-foreground">Not Found</p>
-                      <p className="text-base font-medium text-foreground">{notFoundCount.toLocaleString()}</p>
+                  ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                      <div className="rounded border border-border px-3 py-2">
+                        <p className="text-xs text-muted-foreground">Found</p>
+                        <p className="text-base font-medium text-foreground">{foundCount.toLocaleString()}</p>
+                      </div>
+                      <div className="rounded border border-border px-3 py-2">
+                        <p className="text-xs text-muted-foreground">Not Found</p>
+                        <p className="text-base font-medium text-foreground">{notFoundCount.toLocaleString()}</p>
+                      </div>
+                      <div className="rounded border border-border px-3 py-2">
+                        <p className="text-xs text-muted-foreground">Cannot Verify</p>
+                        <p className="text-base font-medium text-foreground">{cannotVerifyCount.toLocaleString()}</p>
+                      </div>
+                      <div className="rounded border border-border px-3 py-2">
+                        <p className="text-xs text-muted-foreground">No Unique</p>
+                        <p className="text-base font-medium text-foreground">{noUniqueCount.toLocaleString()}</p>
+                      </div>
+                      <div className="rounded border border-border px-3 py-2">
+                        <p className="text-xs text-muted-foreground">Processed</p>
+                        <p className="text-base font-medium text-foreground">{processedRows.toLocaleString()}</p>
+                      </div>
                     </div>
-                    <div className="rounded border border-border px-3 py-2">
-                      <p className="text-xs text-muted-foreground">Cannot Verify</p>
-                      <p className="text-base font-medium text-foreground">{cannotVerifyCount.toLocaleString()}</p>
-                    </div>
-                    <div className="rounded border border-border px-3 py-2">
-                      <p className="text-xs text-muted-foreground">No Unique</p>
-                      <p className="text-base font-medium text-foreground">{noUniqueCount.toLocaleString()}</p>
-                    </div>
-                    <div className="rounded border border-border px-3 py-2">
-                      <p className="text-xs text-muted-foreground">Processed</p>
-                      <p className="text-base font-medium text-foreground">{processedRows.toLocaleString()}</p>
-                    </div>
-                  </div>
+                  )}
 
                   <div className="flex flex-wrap items-center gap-2">
                     <Select value={previewStatusFilter} onValueChange={(v) => { setPreviewStatusFilter(v); setPreviewPage(1); }}>
