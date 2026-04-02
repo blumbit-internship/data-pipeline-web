@@ -78,6 +78,7 @@ export default function JobDetails() {
   const [actionType, setActionType] = useState<"resume" | "retry" | null>(null);
   const [activeTab, setActiveTab] = useState("summary");
   const [providerOverride, setProviderOverride] = useState("tool_default");
+  const [nativeModeOverride, setNativeModeOverride] = useState("tool_default");
   const [retryScope, setRetryScope] = useState("failed_all");
 
   const [preview, setPreview] = useState<OutputPreviewResponse | null>(null);
@@ -87,6 +88,7 @@ export default function JobDetails() {
   const [previewPage, setPreviewPage] = useState(1);
   const [providerHealth, setProviderHealth] = useState<ProviderHealthResponse | null>(null);
   const [providerHealthLoading, setProviderHealthLoading] = useState(false);
+  const actionToastId = "job-details-action-toast";
 
   const loadJob = async (jobId: string, opts?: { silent?: boolean; showToastOnError?: boolean }) => {
     const silent = opts?.silent ?? false;
@@ -165,6 +167,7 @@ export default function JobDetails() {
     ? runMetadata.retry_status_buckets.map((v) => String(v))
     : [];
   const usedProvider = String(runMetadata.selected_provider || "").trim();
+  const usedNativeMode = String(runMetadata.native_mode || "").trim();
   const statusOptions = useMemo(
     () => ["all", ...statusItems.map(([key]) => key)],
     [statusItems],
@@ -237,14 +240,17 @@ export default function JobDetails() {
     if (!id) return;
     setActionLoading(true);
     setActionType(retryFailedOnly ? "retry" : "resume");
+    toast.dismiss(actionToastId);
     const loadingToastId = toast.loading(
       retryFailedOnly ? "Starting retry job..." : "Starting resume job...",
+      { id: actionToastId },
     );
     try {
       const payload: Record<string, unknown> = {
         retry_failed_only: retryFailedOnly,
       };
       if (providerOverride !== "tool_default") payload.selected_provider = providerOverride;
+      if (nativeModeOverride !== "tool_default") payload.native_mode = nativeModeOverride;
       if (retryFailedOnly) {
         const selectedScope = retryScopeOptions.find((opt) => opt.id === retryScope);
         if (selectedScope && selectedScope.buckets.length > 0) {
@@ -260,10 +266,9 @@ export default function JobDetails() {
       if (!response.ok) {
         throw new Error(body?.message || `Failed with status ${response.status}`);
       }
-      toast.success(retryFailedOnly ? "Retry (failed rows) started." : "Resume started.", {
-        id: loadingToastId,
-        duration: 2200,
-      });
+      // Replace loading toast with a short status message and auto-dismiss.
+      toast.dismiss(loadingToastId);
+      toast.success(retryFailedOnly ? "Retry job is running." : "Resume job is running.", { duration: 2500 });
       const newJobId = body?.job?.id as string | undefined;
       if (newJobId) {
         navigate(`/jobs/${newJobId}`);
@@ -271,15 +276,22 @@ export default function JobDetails() {
         await loadJob(id, { silent: false, showToastOnError: true });
       }
     } catch (error) {
+      toast.dismiss(loadingToastId);
       toast.error(error instanceof Error ? error.message : "Failed to resume job.", {
-        id: loadingToastId,
         duration: 4000,
       });
     } finally {
+      toast.dismiss(actionToastId);
       setActionLoading(false);
       setActionType(null);
     }
   };
+
+  useEffect(() => {
+    return () => {
+      toast.dismiss(actionToastId);
+    };
+  }, []);
 
   useEffect(() => {
     if (activeTab === "output" && isJobActive) {
@@ -420,6 +432,19 @@ export default function JobDetails() {
                             ))}
                           </SelectContent>
                         </Select>
+                        {toolKind === "email-scraper" && (
+                          <Select value={nativeModeOverride} onValueChange={setNativeModeOverride} disabled={isJobActive}>
+                            <SelectTrigger className="w-56">
+                              <SelectValue placeholder="Native mode override" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="tool_default">Native mode: Tool default</SelectItem>
+                              <SelectItem value="fast">Native mode: Fast</SelectItem>
+                              <SelectItem value="balanced">Native mode: Balanced</SelectItem>
+                              <SelectItem value="deep">Native mode: Deep</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
                         <Select value={retryScope} onValueChange={setRetryScope} disabled={isJobActive}>
                           <SelectTrigger className="w-56">
                             <SelectValue placeholder="Retry scope" />
@@ -494,6 +519,7 @@ export default function JobDetails() {
                 <p>Retry failed only: {retryFailedOnly ? "Yes" : "No"}</p>
                 <p>Retry status scope: {retryBuckets.length ? retryBuckets.join(", ") : (retryFailedOnly ? "All failed rows" : "-")}</p>
                 <p>Provider override: {usedProvider ? providerLabel(usedProvider) : "Tool default"}</p>
+                <p>Native mode: {usedNativeMode || "Tool default"}</p>
               </CardContent>
             </Card>
 

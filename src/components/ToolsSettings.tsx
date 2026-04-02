@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import type {
   EmailEnrichmentProvider,
+  NativeMode,
   PhoneSearchProvider,
   RoutingMode,
   ScrapegraphEngine,
@@ -73,6 +74,7 @@ const PHONE_PROVIDER_OPTIONS: PhoneSearchProvider[] = [
 const ROUTING_MODE_OPTIONS: RoutingMode[] = ["auto", "managed", "proxy", "direct"];
 const SCRAPEGRAPH_ENGINE_OPTIONS: ScrapegraphEngine[] = ["direct", "serper", "searxng"];
 const SCRAPEGRAPH_MODE_OPTIONS: ScrapegraphMode[] = ["cloud", "local"];
+const NATIVE_MODE_OPTIONS: NativeMode[] = ["fast", "balanced", "deep"];
 
 const normalizePhoneConfig = (config?: Record<string, unknown>) => ({
   search_provider: (() => {
@@ -108,6 +110,10 @@ const normalizePhoneConfig = (config?: Record<string, unknown>) => ({
     ROUTING_MODE_OPTIONS.includes(String(config?.routing_mode || "auto") as RoutingMode)
       ? (String(config?.routing_mode) as RoutingMode)
       : ("auto" as RoutingMode),
+  native_mode:
+    NATIVE_MODE_OPTIONS.includes(String(config?.native_mode || "balanced") as NativeMode)
+      ? (String(config?.native_mode) as NativeMode)
+      : ("balanced" as NativeMode),
 });
 
 const normalizeEmailConfig = (config?: Record<string, unknown>) => ({
@@ -680,6 +686,29 @@ export default function ToolsSettings() {
                     <SelectItem value="managed">Managed unlocker only</SelectItem>
                     <SelectItem value="proxy">Proxy only</SelectItem>
                     <SelectItem value="direct">Direct only</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Native Mode</Label>
+                <Select
+                  value={
+                    ((form.config as Record<string, unknown> | undefined)?.native_mode as string) || "balanced"
+                  }
+                  onValueChange={(value) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      config: { ...(prev.config ?? {}), native_mode: value },
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="fast">Fast (lower coverage)</SelectItem>
+                    <SelectItem value="balanced">Balanced</SelectItem>
+                    <SelectItem value="deep">Deep (higher coverage)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

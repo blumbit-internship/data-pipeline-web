@@ -22,6 +22,7 @@ export function FileUploadPanel({ onStartJob }: FileUploadPanelProps) {
   const [sheetsUrl, setSheetsUrl] = useState("");
   const [tool, setTool] = useState<ToolType>("");
   const [selectedProvider, setSelectedProvider] = useState<string>("tool_default");
+  const [nativeMode, setNativeMode] = useState<string>("tool_default");
   const [dragging, setDragging] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -59,6 +60,7 @@ export function FileUploadPanel({ onStartJob }: FileUploadPanelProps) {
 
   useEffect(() => {
     setSelectedProvider("tool_default");
+    setNativeMode("tool_default");
   }, [tool]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -89,7 +91,7 @@ export function FileUploadPanel({ onStartJob }: FileUploadPanelProps) {
     }
 
     setSubmitting(true);
-    await onStartJob({ file, sheetsUrl, toolType: tool, selectedProvider });
+    await onStartJob({ file, sheetsUrl, toolType: tool, selectedProvider, nativeMode });
     setSubmitting(false);
     setFile(null);
     setSheetsUrl("");
@@ -188,6 +190,19 @@ export function FileUploadPanel({ onStartJob }: FileUploadPanelProps) {
                   {option}
                 </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+        )}
+        {toolKind === "email-scraper" && (
+          <Select value={nativeMode} onValueChange={setNativeMode}>
+            <SelectTrigger className="w-56">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="tool_default">Native mode: Tool default</SelectItem>
+              <SelectItem value="fast">Native mode: Fast</SelectItem>
+              <SelectItem value="balanced">Native mode: Balanced</SelectItem>
+              <SelectItem value="deep">Native mode: Deep</SelectItem>
             </SelectContent>
           </Select>
         )}
