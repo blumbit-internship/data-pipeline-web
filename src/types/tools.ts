@@ -11,6 +11,7 @@ export type RoutingMode = "auto" | "managed" | "proxy" | "direct";
 export type ScrapegraphEngine = "direct" | "serper" | "searxng";
 export type ScrapegraphMode = "cloud" | "local";
 export type NativeMode = "fast" | "balanced" | "deep";
+export type AdvancedAiSearchEngine = "auto" | "searxng" | "serper" | "native" | "hybrid";
 export type EmailEnrichmentProvider =
   | "apollo"
   | "hunter"
@@ -24,6 +25,7 @@ export type EmailEnrichmentProvider =
   | "brightdata"
   | "scrapegraph"
   | "serper"
+  | "advanced_ai"
   | "native";
 
 export interface PhoneScraperToolConfig {
@@ -58,6 +60,8 @@ export interface EmailScraperToolConfig {
   cache_ttl_seconds?: number;
   verified_fresh_days?: number;
   routing_mode?: RoutingMode;
+  native_mode?: NativeMode;
+  advanced_ai_search_engine?: AdvancedAiSearchEngine;
 }
 
 export interface ToolDefinition {

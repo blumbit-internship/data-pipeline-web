@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import type {
   EmailEnrichmentProvider,
+  AdvancedAiSearchEngine,
   NativeMode,
   PhoneSearchProvider,
   RoutingMode,
@@ -60,6 +61,7 @@ const EMAIL_PROVIDER_OPTIONS: EmailEnrichmentProvider[] = [
   "brightdata",
   "scrapegraph",
   "serper",
+  "advanced_ai",
   "native",
 ];
 const PHONE_PROVIDER_OPTIONS: PhoneSearchProvider[] = [
@@ -75,6 +77,7 @@ const ROUTING_MODE_OPTIONS: RoutingMode[] = ["auto", "managed", "proxy", "direct
 const SCRAPEGRAPH_ENGINE_OPTIONS: ScrapegraphEngine[] = ["direct", "serper", "searxng"];
 const SCRAPEGRAPH_MODE_OPTIONS: ScrapegraphMode[] = ["cloud", "local"];
 const NATIVE_MODE_OPTIONS: NativeMode[] = ["fast", "balanced", "deep"];
+const ADVANCED_AI_ENGINE_OPTIONS: AdvancedAiSearchEngine[] = ["auto", "searxng", "serper", "native", "hybrid"];
 
 const normalizePhoneConfig = (config?: Record<string, unknown>) => ({
   search_provider: (() => {
@@ -114,6 +117,10 @@ const normalizePhoneConfig = (config?: Record<string, unknown>) => ({
     NATIVE_MODE_OPTIONS.includes(String(config?.native_mode || "balanced") as NativeMode)
       ? (String(config?.native_mode) as NativeMode)
       : ("balanced" as NativeMode),
+  advanced_ai_search_engine:
+    ADVANCED_AI_ENGINE_OPTIONS.includes(String(config?.advanced_ai_search_engine || "auto") as AdvancedAiSearchEngine)
+      ? (String(config?.advanced_ai_search_engine) as AdvancedAiSearchEngine)
+      : ("auto" as AdvancedAiSearchEngine),
 });
 
 const normalizeEmailConfig = (config?: Record<string, unknown>) => ({
@@ -586,6 +593,7 @@ export default function ToolsSettings() {
                     <SelectItem value="brightdata">BrightData</SelectItem>
                     <SelectItem value="scrapegraph">ScrapeGraphAI</SelectItem>
                     <SelectItem value="serper">Serper</SelectItem>
+                    <SelectItem value="advanced_ai">Advanced AI (Search + LLM)</SelectItem>
                     <SelectItem value="native">Native Fetch</SelectItem>
                   </SelectContent>
                 </Select>
@@ -709,6 +717,31 @@ export default function ToolsSettings() {
                     <SelectItem value="fast">Fast (lower coverage)</SelectItem>
                     <SelectItem value="balanced">Balanced</SelectItem>
                     <SelectItem value="deep">Deep (higher coverage)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Advanced AI Search Engine</Label>
+                <Select
+                  value={
+                    ((form.config as Record<string, unknown> | undefined)?.advanced_ai_search_engine as string) || "auto"
+                  }
+                  onValueChange={(value) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      config: { ...(prev.config ?? {}), advanced_ai_search_engine: value },
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto</SelectItem>
+                    <SelectItem value="searxng">SearXNG only</SelectItem>
+                    <SelectItem value="serper">Serper only</SelectItem>
+                    <SelectItem value="native">Native crawl only</SelectItem>
+                    <SelectItem value="hybrid">Hybrid (all evidence sources)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

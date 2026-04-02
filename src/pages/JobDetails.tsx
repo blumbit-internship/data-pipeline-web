@@ -79,6 +79,7 @@ export default function JobDetails() {
   const [activeTab, setActiveTab] = useState("summary");
   const [providerOverride, setProviderOverride] = useState("tool_default");
   const [nativeModeOverride, setNativeModeOverride] = useState("tool_default");
+  const [advancedAiEngineOverride, setAdvancedAiEngineOverride] = useState("tool_default");
   const [retryScope, setRetryScope] = useState("failed_all");
 
   const [preview, setPreview] = useState<OutputPreviewResponse | null>(null);
@@ -168,6 +169,7 @@ export default function JobDetails() {
     : [];
   const usedProvider = String(runMetadata.selected_provider || "").trim();
   const usedNativeMode = String(runMetadata.native_mode || "").trim();
+  const usedAdvancedAiEngine = String(runMetadata.advanced_ai_search_engine || "").trim();
   const statusOptions = useMemo(
     () => ["all", ...statusItems.map(([key]) => key)],
     [statusItems],
@@ -176,7 +178,7 @@ export default function JobDetails() {
   const isDataValidation = toolKind === "data-validation";
   const providerOptions = useMemo(() => {
     if (toolKind === "email-scraper") {
-      return ["tool_default", "scrapegraph", "serper", "native", "apollo", "hunter", "snov", "prospeo", "anymailfinder", "voilanorbert", "getprospect", "rocketreach", "coresignal", "brightdata"];
+      return ["tool_default", "scrapegraph", "serper", "advanced_ai", "native", "apollo", "hunter", "snov", "prospeo", "anymailfinder", "voilanorbert", "getprospect", "rocketreach", "coresignal", "brightdata"];
     }
     if (toolKind === "phone-scraper") {
       return ["tool_default", "scrapegraph", "serper", "native", "apollo", "rocketreach", "brave", "google_places"];
@@ -189,6 +191,7 @@ export default function JobDetails() {
       tool_default: "Tool default",
       scrapegraph: "ScrapeGraphAI",
       serper: "Serper",
+      advanced_ai: "Advanced AI (Search + LLM)",
       native: "Native Fetch",
       apollo: "Apollo",
       hunter: "Hunter",
@@ -251,6 +254,7 @@ export default function JobDetails() {
       };
       if (providerOverride !== "tool_default") payload.selected_provider = providerOverride;
       if (nativeModeOverride !== "tool_default") payload.native_mode = nativeModeOverride;
+      if (advancedAiEngineOverride !== "tool_default") payload.advanced_ai_search_engine = advancedAiEngineOverride;
       if (retryFailedOnly) {
         const selectedScope = retryScopeOptions.find((opt) => opt.id === retryScope);
         if (selectedScope && selectedScope.buckets.length > 0) {
@@ -445,6 +449,21 @@ export default function JobDetails() {
                             </SelectContent>
                           </Select>
                         )}
+                        {toolKind === "email-scraper" && (
+                          <Select value={advancedAiEngineOverride} onValueChange={setAdvancedAiEngineOverride} disabled={isJobActive}>
+                            <SelectTrigger className="w-72">
+                              <SelectValue placeholder="Advanced AI engine override" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="tool_default">Advanced AI engine: Tool default</SelectItem>
+                              <SelectItem value="auto">Advanced AI engine: Auto</SelectItem>
+                              <SelectItem value="searxng">Advanced AI engine: SearXNG</SelectItem>
+                              <SelectItem value="serper">Advanced AI engine: Serper</SelectItem>
+                              <SelectItem value="native">Advanced AI engine: Native crawl</SelectItem>
+                              <SelectItem value="hybrid">Advanced AI engine: Hybrid (all)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
                         <Select value={retryScope} onValueChange={setRetryScope} disabled={isJobActive}>
                           <SelectTrigger className="w-56">
                             <SelectValue placeholder="Retry scope" />
@@ -520,6 +539,7 @@ export default function JobDetails() {
                 <p>Retry status scope: {retryBuckets.length ? retryBuckets.join(", ") : (retryFailedOnly ? "All failed rows" : "-")}</p>
                 <p>Provider override: {usedProvider ? providerLabel(usedProvider) : "Tool default"}</p>
                 <p>Native mode: {usedNativeMode || "Tool default"}</p>
+                <p>Advanced AI engine: {usedAdvancedAiEngine || "Tool default"}</p>
               </CardContent>
             </Card>
 

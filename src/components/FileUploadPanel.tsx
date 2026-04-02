@@ -23,6 +23,7 @@ export function FileUploadPanel({ onStartJob }: FileUploadPanelProps) {
   const [tool, setTool] = useState<ToolType>("");
   const [selectedProvider, setSelectedProvider] = useState<string>("tool_default");
   const [nativeMode, setNativeMode] = useState<string>("tool_default");
+  const [advancedAiSearchEngine, setAdvancedAiSearchEngine] = useState<string>("tool_default");
   const [dragging, setDragging] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -35,7 +36,7 @@ export function FileUploadPanel({ onStartJob }: FileUploadPanelProps) {
   const toolKind = (selectedTool?.name || "").toLowerCase();
   const providerOptions =
     toolKind === "email-scraper"
-      ? ["apollo", "hunter", "snov", "prospeo", "anymailfinder", "voilanorbert", "getprospect", "rocketreach", "coresignal", "brightdata", "scrapegraph", "serper", "native"]
+      ? ["apollo", "hunter", "snov", "prospeo", "anymailfinder", "voilanorbert", "getprospect", "rocketreach", "coresignal", "brightdata", "scrapegraph", "serper", "advanced_ai", "native"]
       : toolKind === "phone-scraper"
         ? ["native", "serper", "scrapegraph", "apollo", "rocketreach", "brave", "google_places"]
         : [];
@@ -61,6 +62,7 @@ export function FileUploadPanel({ onStartJob }: FileUploadPanelProps) {
   useEffect(() => {
     setSelectedProvider("tool_default");
     setNativeMode("tool_default");
+    setAdvancedAiSearchEngine("tool_default");
   }, [tool]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -91,7 +93,14 @@ export function FileUploadPanel({ onStartJob }: FileUploadPanelProps) {
     }
 
     setSubmitting(true);
-    await onStartJob({ file, sheetsUrl, toolType: tool, selectedProvider, nativeMode });
+    await onStartJob({
+      file,
+      sheetsUrl,
+      toolType: tool,
+      selectedProvider,
+      nativeMode,
+      advancedAiSearchEngine,
+    });
     setSubmitting(false);
     setFile(null);
     setSheetsUrl("");
@@ -203,6 +212,21 @@ export function FileUploadPanel({ onStartJob }: FileUploadPanelProps) {
               <SelectItem value="fast">Native mode: Fast</SelectItem>
               <SelectItem value="balanced">Native mode: Balanced</SelectItem>
               <SelectItem value="deep">Native mode: Deep</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
+        {toolKind === "email-scraper" && (selectedProvider === "advanced_ai" || selectedProvider === "tool_default") && (
+          <Select value={advancedAiSearchEngine} onValueChange={setAdvancedAiSearchEngine}>
+            <SelectTrigger className="w-72">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="tool_default">Advanced AI engine: Tool default</SelectItem>
+              <SelectItem value="auto">Advanced AI engine: Auto</SelectItem>
+              <SelectItem value="searxng">Advanced AI engine: SearXNG</SelectItem>
+              <SelectItem value="serper">Advanced AI engine: Serper</SelectItem>
+              <SelectItem value="native">Advanced AI engine: Native crawl</SelectItem>
+              <SelectItem value="hybrid">Advanced AI engine: Hybrid (all)</SelectItem>
             </SelectContent>
           </Select>
         )}

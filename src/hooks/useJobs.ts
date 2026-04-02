@@ -10,6 +10,7 @@ export interface StartJobInput {
   toolType: ToolType;
   selectedProvider?: string;
   nativeMode?: string;
+  advancedAiSearchEngine?: string;
 }
 
 export interface Job {
@@ -101,7 +102,7 @@ export function useJobs() {
     return () => window.clearInterval(timer);
   }, [loadJobs]);
 
-  const addJob = useCallback(async ({ file, sheetsUrl, toolType, selectedProvider, nativeMode }: StartJobInput) => {
+  const addJob = useCallback(async ({ file, sheetsUrl, toolType, selectedProvider, nativeMode, advancedAiSearchEngine }: StartJobInput) => {
     const fileName = file?.name || sheetsUrl || "Untitled";
     const newJob: Job = {
       id: crypto.randomUUID(),
@@ -140,6 +141,9 @@ export function useJobs() {
       }
       if (nativeMode && nativeMode !== "tool_default") {
         formData.append("native_mode", nativeMode);
+      }
+      if (advancedAiSearchEngine && advancedAiSearchEngine !== "tool_default") {
+        formData.append("advanced_ai_search_engine", advancedAiSearchEngine);
       }
 
       const response = await fetch(backendRoutes.tools.process, {
