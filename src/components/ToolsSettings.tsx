@@ -15,6 +15,7 @@ import {
 import type {
   EmailEnrichmentProvider,
   AdvancedAiSearchEngine,
+  NativeFetchMode,
   NativeMode,
   PhoneSearchProvider,
   RoutingMode,
@@ -61,6 +62,7 @@ const EMAIL_PROVIDER_OPTIONS: EmailEnrichmentProvider[] = [
   "brightdata",
   "scrapegraph",
   "serper",
+  "duckduckgo",
   "advanced_ai",
   "native",
 ];
@@ -77,7 +79,8 @@ const ROUTING_MODE_OPTIONS: RoutingMode[] = ["auto", "managed", "proxy", "direct
 const SCRAPEGRAPH_ENGINE_OPTIONS: ScrapegraphEngine[] = ["direct", "serper", "searxng"];
 const SCRAPEGRAPH_MODE_OPTIONS: ScrapegraphMode[] = ["cloud", "local"];
 const NATIVE_MODE_OPTIONS: NativeMode[] = ["fast", "balanced", "deep"];
-const ADVANCED_AI_ENGINE_OPTIONS: AdvancedAiSearchEngine[] = ["auto", "searxng", "serper", "native", "hybrid"];
+const NATIVE_FETCH_MODE_OPTIONS: NativeFetchMode[] = ["http", "headful"];
+const ADVANCED_AI_ENGINE_OPTIONS: AdvancedAiSearchEngine[] = ["auto", "searxng", "serper", "duckduckgo", "native", "hybrid"];
 
 const normalizePhoneConfig = (config?: Record<string, unknown>) => ({
   search_provider: (() => {
@@ -163,6 +166,18 @@ const normalizeEmailConfig = (config?: Record<string, unknown>) => ({
     ROUTING_MODE_OPTIONS.includes(String(config?.routing_mode || "auto") as RoutingMode)
       ? (String(config?.routing_mode) as RoutingMode)
       : ("auto" as RoutingMode),
+  native_mode:
+    NATIVE_MODE_OPTIONS.includes(String(config?.native_mode || "balanced") as NativeMode)
+      ? (String(config?.native_mode) as NativeMode)
+      : ("balanced" as NativeMode),
+  native_fetch_mode:
+    NATIVE_FETCH_MODE_OPTIONS.includes(String(config?.native_fetch_mode || "http") as NativeFetchMode)
+      ? (String(config?.native_fetch_mode) as NativeFetchMode)
+      : ("http" as NativeFetchMode),
+  advanced_ai_search_engine:
+    ADVANCED_AI_ENGINE_OPTIONS.includes(String(config?.advanced_ai_search_engine || "auto") as AdvancedAiSearchEngine)
+      ? (String(config?.advanced_ai_search_engine) as AdvancedAiSearchEngine)
+      : ("auto" as AdvancedAiSearchEngine),
 });
 
 export default function ToolsSettings() {
@@ -593,6 +608,7 @@ export default function ToolsSettings() {
                     <SelectItem value="brightdata">BrightData</SelectItem>
                     <SelectItem value="scrapegraph">ScrapeGraphAI</SelectItem>
                     <SelectItem value="serper">Serper</SelectItem>
+                    <SelectItem value="duckduckgo">DuckDuckGo Search</SelectItem>
                     <SelectItem value="advanced_ai">Advanced AI (Search + LLM)</SelectItem>
                     <SelectItem value="native">Native Fetch</SelectItem>
                   </SelectContent>
@@ -721,6 +737,28 @@ export default function ToolsSettings() {
                 </Select>
               </div>
               <div className="space-y-2">
+                <Label>Native Fetch Mode</Label>
+                <Select
+                  value={
+                    ((form.config as Record<string, unknown> | undefined)?.native_fetch_mode as string) || "http"
+                  }
+                  onValueChange={(value) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      config: { ...(prev.config ?? {}), native_fetch_mode: value },
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="http">HTTP fetch (fast)</SelectItem>
+                    <SelectItem value="headful">Headful browser fetch (recordable)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
                 <Label>Advanced AI Search Engine</Label>
                 <Select
                   value={
@@ -740,6 +778,7 @@ export default function ToolsSettings() {
                     <SelectItem value="auto">Auto</SelectItem>
                     <SelectItem value="searxng">SearXNG only</SelectItem>
                     <SelectItem value="serper">Serper only</SelectItem>
+                    <SelectItem value="duckduckgo">DuckDuckGo only</SelectItem>
                     <SelectItem value="native">Native crawl only</SelectItem>
                     <SelectItem value="hybrid">Hybrid (all evidence sources)</SelectItem>
                   </SelectContent>

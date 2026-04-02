@@ -11,7 +11,8 @@ export type RoutingMode = "auto" | "managed" | "proxy" | "direct";
 export type ScrapegraphEngine = "direct" | "serper" | "searxng";
 export type ScrapegraphMode = "cloud" | "local";
 export type NativeMode = "fast" | "balanced" | "deep";
-export type AdvancedAiSearchEngine = "auto" | "searxng" | "serper" | "native" | "hybrid";
+export type NativeFetchMode = "http" | "headful";
+export type AdvancedAiSearchEngine = "auto" | "searxng" | "serper" | "duckduckgo" | "native" | "hybrid";
 export type EmailEnrichmentProvider =
   | "apollo"
   | "hunter"
@@ -25,6 +26,7 @@ export type EmailEnrichmentProvider =
   | "brightdata"
   | "scrapegraph"
   | "serper"
+  | "duckduckgo"
   | "advanced_ai"
   | "native";
 
@@ -61,6 +63,7 @@ export interface EmailScraperToolConfig {
   verified_fresh_days?: number;
   routing_mode?: RoutingMode;
   native_mode?: NativeMode;
+  native_fetch_mode?: NativeFetchMode;
   advanced_ai_search_engine?: AdvancedAiSearchEngine;
 }
 
