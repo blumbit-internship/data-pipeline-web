@@ -214,8 +214,17 @@ export default function JobDetails() {
   const retryScopeOptions = useMemo(() => {
     if (toolKind === "email-scraper") {
       return [
-        { id: "failed_all", label: "All failed rows", buckets: ["no email found", "cannot verify"] },
+        {
+          id: "failed_all",
+          label: "All failed rows",
+          buckets: ["no email found", "no email matching name", "cannot verify"],
+        },
         { id: "no_email_found", label: "Only 'no email found'", buckets: ["no email found"] },
+        {
+          id: "no_email_matching_name",
+          label: "Only 'no email matching name'",
+          buckets: ["no email matching name"],
+        },
         { id: "cannot_verify", label: "Only 'cannot verify'", buckets: ["cannot verify"] },
       ];
     }
