@@ -12,6 +12,7 @@ interface UseJobsListDataParams {
   dateTo?: string;
   onPageSync?: (page: number) => void;
   onError?: (message: string) => void;
+  autoRefreshMs?: number;
 }
 
 export function useJobsListData(params: UseJobsListDataParams) {
@@ -25,6 +26,7 @@ export function useJobsListData(params: UseJobsListDataParams) {
     dateTo,
     onPageSync,
     onError,
+    autoRefreshMs = 3000,
   } = params;
 
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -32,8 +34,9 @@ export function useJobsListData(params: UseJobsListDataParams) {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
-  const reload = useCallback(async () => {
-    setIsLoading(true);
+  const reload = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent ?? false;
+    if (!silent) setIsLoading(true);
     try {
       const payload = await listJobs({
         page,
@@ -56,13 +59,21 @@ export function useJobsListData(params: UseJobsListDataParams) {
         onError(error instanceof Error ? error.message : "Failed to load jobs.");
       }
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   }, [page, pageSize, search, statusFilter, toolFilter, dateFrom, dateTo, onPageSync, onError]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  useEffect(() => {
+    if (autoRefreshMs <= 0) return;
+    const timer = window.setInterval(() => {
+      void reload({ silent: true });
+    }, autoRefreshMs);
+    return () => window.clearInterval(timer);
+  }, [autoRefreshMs, reload]);
 
   return { jobs, setJobs, isLoading, total, setTotal, totalPages, reload };
 }
