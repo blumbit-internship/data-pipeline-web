@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { backendRoutes } from "@/lib/backend_routes";
+import { fetchJson } from "@/lib/api-client";
+import { listJobs, mapApiJobToJob } from "@/lib/jobs-api";
 
 export type JobStatus = "new" | "processing" | "completed" | "error" | "cancelled";
 export type ToolType = string;
@@ -37,56 +39,13 @@ const TOOL_LABELS: Record<ToolType, string> = {
 export const getToolLabel = (t: ToolType) =>
   TOOL_LABELS[t] || t.split("-").map((part) => part[0].toUpperCase() + part.slice(1)).join(" ");
 
-interface ApiJob {
-  id: string;
-  toolName: string;
-  sourceName: string;
-  status: JobStatus;
-  progress: number;
-  totalRows: number;
-  statusCounts?: Record<string, number>;
-  downloadUrl?: string;
-  errorMessage?: string;
-  createdAt: string;
-  processingTimeSeconds?: number;
-}
-
-interface ApiJobsListResponse {
-  results: ApiJob[];
-  total: number;
-  page: number;
-  page_size: number;
-  total_pages: number;
-}
-
 export function useJobs() {
   const [jobs, setJobs] = useState<Job[]>([]);
 
   const loadJobs = useCallback(async () => {
     try {
-      const params = new URLSearchParams({
-        page: "1",
-        page_size: "200",
-      });
-      const response = await fetch(`${backendRoutes.jobs.list}?${params.toString()}`);
-      if (!response.ok) return;
-      const payload = (await response.json()) as ApiJobsListResponse | ApiJob[];
-      const items = Array.isArray(payload) ? payload : payload.results || [];
-      setJobs(
-        items.map((job) => ({
-          id: job.id,
-          fileName: job.sourceName,
-          toolType: job.toolName,
-          startTime: new Date(job.createdAt),
-          progress: job.progress,
-          status: job.status,
-          totalRows: job.totalRows,
-          statusCounts: job.statusCounts || {},
-          downloadUrl: job.downloadUrl,
-          errorMessage: job.errorMessage,
-          processingTimeSeconds: job.processingTimeSeconds || 0,
-        })),
-      );
+      const payload = await listJobs({ page: 1, pageSize: 200 });
+      setJobs((payload.results || []).map(mapApiJobToJob));
     } catch {
       // silent fallback: keep local state
     }
@@ -150,15 +109,10 @@ export function useJobs() {
         formData.append("advanced_ai_search_engine", advancedAiSearchEngine);
       }
 
-      const response = await fetch(backendRoutes.tools.process, {
+      await fetchJson(backendRoutes.tools.process, {
         method: "POST",
         body: formData,
       });
-
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(payload?.message || `Failed with status ${response.status}`);
-      }
 
       await loadJobs();
     } catch (error) {
@@ -212,26 +166,22 @@ export function useJobs() {
     if (opts?.retryStatusBuckets && opts.retryStatusBuckets.length > 0) {
       payload.retry_status_buckets = opts.retryStatusBuckets;
     }
-    const response = await fetch(backendRoutes.jobs.resume(id), {
+    await fetchJson(backendRoutes.jobs.resume(id), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    if (!response.ok) {
-      const payload = await response.json().catch(() => null);
-      throw new Error(payload?.message || `Failed to resume job (${response.status})`);
-    }
     await loadJobs();
   }, [loadJobs]);
 
   const deleteJob = useCallback(async (id: string) => {
     const previous = jobs;
     setJobs((prev) => prev.filter((j) => j.id !== id));
-    const response = await fetch(backendRoutes.jobs.delete(id), { method: "DELETE" });
-    if (!response.ok) {
+    try {
+      await fetchJson(backendRoutes.jobs.delete(id), { method: "DELETE" });
+    } catch (error) {
       setJobs(previous);
-      const payload = await response.json().catch(() => null);
-      throw new Error(payload?.message || `Failed to delete job (${response.status})`);
+      throw error instanceof Error ? error : new Error("Failed to delete job.");
     }
     await loadJobs();
   }, [jobs, loadJobs]);

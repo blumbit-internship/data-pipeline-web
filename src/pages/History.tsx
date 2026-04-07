@@ -4,7 +4,6 @@ import { Download, RotateCcw, Search, Filter, Eye, StopCircle, Trash2 } from "lu
 import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { useJobsContext } from "@/context/JobsContext";
-import { backendRoutes } from "@/lib/backend_routes";
 import { useAvailableTools } from "@/hooks/useTools";
 import { getToolLabel, type Job, type JobStatus } from "@/hooks/useJobs";
 import { Button } from "@/components/ui/button";
@@ -25,6 +24,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { listJobs, mapApiJobToJob } from "@/lib/jobs-api";
 
 const statusConfig: Record<JobStatus, { label: string; className: string }> = {
   new: { label: "New", className: "bg-muted text-muted-foreground border-transparent" },
@@ -33,28 +33,6 @@ const statusConfig: Record<JobStatus, { label: string; className: string }> = {
   error: { label: "Error", className: "bg-destructive/10 text-destructive border-transparent" },
   cancelled: { label: "Cancelled", className: "bg-warning/10 text-warning border-transparent" },
 };
-
-interface ApiJob {
-  id: string;
-  toolName: string;
-  sourceName: string;
-  status: JobStatus;
-  progress: number;
-  totalRows: number;
-  statusCounts?: Record<string, number>;
-  downloadUrl?: string;
-  errorMessage?: string;
-  createdAt: string;
-  processingTimeSeconds?: number;
-}
-
-interface ApiJobsListResponse {
-  results: ApiJob[];
-  total: number;
-  page: number;
-  page_size: number;
-  total_pages: number;
-}
 
 const History = () => {
   const navigate = useNavigate();
@@ -75,34 +53,16 @@ const History = () => {
   const loadJobs = useCallback(async () => {
     setIsLoading(true);
     try {
-      const params = new URLSearchParams({
-        page: String(page),
-        page_size: String(pageSize),
+      const payload = await listJobs({
+        page,
+        pageSize,
+        search,
+        status: statusFilter,
+        toolName: toolFilter,
+        dateFrom,
+        dateTo,
       });
-      if (search.trim()) params.set("search", search.trim());
-      if (statusFilter !== "all") params.set("status", statusFilter);
-      if (toolFilter !== "all") params.set("tool_name", toolFilter);
-      if (dateFrom) params.set("date_from", dateFrom);
-      if (dateTo) params.set("date_to", dateTo);
-
-      const response = await fetch(`${backendRoutes.jobs.list}?${params.toString()}`);
-      if (!response.ok) throw new Error(`Failed with status ${response.status}`);
-      const payload = (await response.json()) as ApiJobsListResponse;
-      setJobs(
-        (payload.results || []).map((job) => ({
-          id: job.id,
-          fileName: job.sourceName,
-          toolType: job.toolName,
-          startTime: new Date(job.createdAt),
-          progress: job.progress,
-          status: job.status,
-          totalRows: job.totalRows,
-          statusCounts: job.statusCounts || {},
-          downloadUrl: job.downloadUrl,
-          errorMessage: job.errorMessage,
-          processingTimeSeconds: job.processingTimeSeconds || 0,
-        })),
-      );
+      setJobs((payload.results || []).map(mapApiJobToJob));
       setTotal(Number(payload.total || 0));
       setTotalPages(Math.max(1, Number(payload.total_pages || 1)));
       setPage(Number(payload.page || 1));

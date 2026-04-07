@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { useNavigate, useParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { backendRoutes } from "@/lib/backend_routes";
+import { fetchJson } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -99,11 +100,7 @@ export default function JobDetails() {
     // Avoid blanking the page while polling an already-loaded job.
     if (!silent && !job) setLoading(true);
     try {
-      const response = await fetch(backendRoutes.jobs.detail(jobId));
-      if (!response.ok) {
-        throw new Error(`Failed with status ${response.status}`);
-      }
-      const payload = (await response.json()) as JobDetailResponse;
+      const payload = await fetchJson<JobDetailResponse>(backendRoutes.jobs.detail(jobId));
       setJob(payload);
     } catch (error) {
       if (showToastOnError) {
@@ -274,15 +271,11 @@ export default function JobDetails() {
           payload.retry_status_buckets = selectedScope.buckets;
         }
       }
-      const response = await fetch(backendRoutes.jobs.resume(id), {
+      const body = await fetchJson<{ job?: { id?: string } }>(backendRoutes.jobs.resume(id), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const body = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(body?.message || `Failed with status ${response.status}`);
-      }
       // Replace loading toast with a short status message and auto-dismiss.
       toast.dismiss(loadingToastId);
       toast.success(retryFailedOnly ? "Retry job is running." : "Resume job is running.", { duration: 2500 });
@@ -326,9 +319,7 @@ export default function JobDetails() {
         status: previewStatusFilter,
       });
       if (previewSearch.trim()) params.set("search", previewSearch.trim());
-      const response = await fetch(`${backendRoutes.jobs.outputPreview(id)}?${params.toString()}`);
-      if (!response.ok) throw new Error(`Failed with status ${response.status}`);
-      const payload = (await response.json()) as OutputPreviewResponse;
+      const payload = await fetchJson<OutputPreviewResponse>(`${backendRoutes.jobs.outputPreview(id)}?${params.toString()}`);
       setPreview(payload);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to load output preview.");
@@ -341,9 +332,7 @@ export default function JobDetails() {
     if (!job?.toolName) return;
     setProviderHealthLoading(true);
     try {
-      const response = await fetch(backendRoutes.tools.providerHealth(job.toolName));
-      if (!response.ok) throw new Error(`Failed with status ${response.status}`);
-      const payload = (await response.json()) as ProviderHealthResponse;
+      const payload = await fetchJson<ProviderHealthResponse>(backendRoutes.tools.providerHealth(job.toolName));
       setProviderHealth(payload);
       toast.success("Provider health updated.");
     } catch (error) {

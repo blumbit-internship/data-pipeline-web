@@ -15,10 +15,10 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { Activity, CheckCircle2, AlertCircle, FileUp, Filter, Search } from "lucide-react";
-import { backendRoutes } from "@/lib/backend_routes";
 import { useAvailableTools } from "@/hooks/useTools";
-import type { Job, JobStatus, StartJobInput } from "@/hooks/useJobs";
+import type { Job, StartJobInput } from "@/hooks/useJobs";
 import { toast } from "sonner";
+import { listJobs, mapApiJobToJob } from "@/lib/jobs-api";
 
 function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: number; color: string }) {
   return (
@@ -51,57 +51,17 @@ const Index = () => {
   const completed = jobs.filter((j) => j.status === "completed").length;
   const errors = jobs.filter((j) => j.status === "error").length;
 
-  interface ApiJob {
-    id: string;
-    toolName: string;
-    sourceName: string;
-    status: JobStatus;
-    progress: number;
-    totalRows: number;
-    statusCounts?: Record<string, number>;
-    downloadUrl?: string;
-    errorMessage?: string;
-    createdAt: string;
-    processingTimeSeconds?: number;
-  }
-
-  interface ApiJobsListResponse {
-    results: ApiJob[];
-    total: number;
-    page: number;
-    total_pages: number;
-  }
-
   const loadJobs = useCallback(async () => {
     setIsLoadingJobs(true);
     try {
-      const params = new URLSearchParams({
-        page: String(page),
-        page_size: String(pageSize),
+      const payload = await listJobs({
+        page,
+        pageSize,
+        search,
+        status: statusFilter,
+        toolName: toolFilter,
       });
-      if (search.trim()) params.set("search", search.trim());
-      if (statusFilter !== "all") params.set("status", statusFilter);
-      if (toolFilter !== "all") params.set("tool_name", toolFilter);
-
-      const response = await fetch(`${backendRoutes.jobs.list}?${params.toString()}`);
-      if (!response.ok) throw new Error(`Failed with status ${response.status}`);
-
-      const payload = (await response.json()) as ApiJobsListResponse;
-      setTableJobs(
-        (payload.results || []).map((job) => ({
-          id: job.id,
-          fileName: job.sourceName,
-          toolType: job.toolName,
-          startTime: new Date(job.createdAt),
-          progress: job.progress,
-          status: job.status,
-          totalRows: job.totalRows,
-          statusCounts: job.statusCounts || {},
-          downloadUrl: job.downloadUrl,
-          errorMessage: job.errorMessage,
-          processingTimeSeconds: job.processingTimeSeconds || 0,
-        })),
-      );
+      setTableJobs((payload.results || []).map(mapApiJobToJob));
       setTotal(Number(payload.total || 0));
       setTotalPages(Math.max(1, Number(payload.total_pages || 1)));
       setPage(Number(payload.page || 1));

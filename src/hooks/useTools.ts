@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { backendRoutes } from "@/lib/backend_routes";
+import { fetchJson } from "@/lib/api-client";
 import type { ToolDefinition } from "@/types/tools";
 
 type ToolPayload = Omit<ToolDefinition, "id" | "createdAt" | "updatedAt">;
@@ -9,15 +10,6 @@ const toolsKeys = {
   available: ["tools", "available"] as const,
   list: ["tools", "list"] as const,
 };
-
-async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, init);
-  const payload = await response.json().catch(() => null);
-  if (!response.ok) {
-    throw new Error(payload?.message || `Request failed with status ${response.status}`);
-  }
-  return payload as T;
-}
 
 export function useAvailableTools() {
   return useQuery({
@@ -72,13 +64,8 @@ export function useUpdateTool() {
 export function useDeleteTool() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
-      const response = await fetch(backendRoutes.tools.detail(id), { method: "DELETE" });
-      if (!response.ok) {
-        throw new Error(`Delete failed with status ${response.status}`);
-      }
-      return id;
-    },
+    mutationFn: async (id: string) =>
+      fetchJson<unknown>(backendRoutes.tools.detail(id), { method: "DELETE" }).then(() => id),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: toolsKeys.list }),
