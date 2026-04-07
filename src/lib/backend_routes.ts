@@ -1,6 +1,13 @@
 import { API_URL } from "@/config/dot-env.config";
 
 export const backendRoutes = {
+  auth: {
+    register: `${API_URL}/auth/register`,
+    login: `${API_URL}/auth/login`,
+    refresh: `${API_URL}/auth/refresh`,
+    logout: `${API_URL}/auth/logout`,
+    me: `${API_URL}/auth/me`,
+  },
   upload: `${API_URL}/upload`,
   validation_rules: {
     list: `${API_URL}/validation_rules`,

@@ -1,5 +1,6 @@
-import { LayoutDashboard, Upload, History, Settings, Zap } from "lucide-react";
+import { LayoutDashboard, Upload, History, Settings, Zap, LogOut } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
+import { useAuth } from "@/context/AuthContext";
 import { useLocation } from "react-router-dom";
 import {
   Sidebar,
@@ -26,6 +27,7 @@ const settingsItems = [
 
 export function AppSidebar() {
   const { state } = useSidebar();
+  const { logout } = useAuth();
   const collapsed = state === "collapsed";
   const location = useLocation();
   const isActive = (path: string) => location.pathname === path;
@@ -76,6 +78,16 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => {
+                    void logout();
+                  }}
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  {!collapsed && <span>Logout</span>}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
