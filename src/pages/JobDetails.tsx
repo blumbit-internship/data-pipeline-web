@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { backendRoutes } from "@/lib/backend_routes";
 import { fetchJson } from "@/lib/api-client";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -88,6 +89,7 @@ export default function JobDetails() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewStatusFilter, setPreviewStatusFilter] = useState("all");
   const [previewSearch, setPreviewSearch] = useState("");
+  const debouncedPreviewSearch = useDebouncedValue(previewSearch, 350);
   const [previewPage, setPreviewPage] = useState(1);
   const [providerHealth, setProviderHealth] = useState<ProviderHealthResponse | null>(null);
   const [providerHealthLoading, setProviderHealthLoading] = useState(false);
@@ -318,7 +320,7 @@ export default function JobDetails() {
         page_size: "25",
         status: previewStatusFilter,
       });
-      if (previewSearch.trim()) params.set("search", previewSearch.trim());
+      if (debouncedPreviewSearch.trim()) params.set("search", debouncedPreviewSearch.trim());
       const payload = await fetchJson<OutputPreviewResponse>(`${backendRoutes.jobs.outputPreview(id)}?${params.toString()}`);
       setPreview(payload);
     } catch (error) {
@@ -346,7 +348,7 @@ export default function JobDetails() {
     if (activeTab !== "output") return;
     void loadPreview();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, id, previewPage, previewStatusFilter, previewSearch]);
+  }, [activeTab, id, previewPage, previewStatusFilter, debouncedPreviewSearch]);
 
   return (
     <DashboardLayout>

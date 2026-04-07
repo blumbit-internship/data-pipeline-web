@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/pagination";
 import { Activity, CheckCircle2, AlertCircle, FileUp, Filter, Search } from "lucide-react";
 import { useAvailableTools } from "@/hooks/useTools";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import type { Job, StartJobInput } from "@/hooks/useJobs";
 import { toast } from "sonner";
 import { listJobs, mapApiJobToJob } from "@/lib/jobs-api";
@@ -40,6 +41,7 @@ const Index = () => {
   const [tableJobs, setTableJobs] = useState<Job[]>([]);
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 350);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [toolFilter, setToolFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
@@ -57,7 +59,7 @@ const Index = () => {
       const payload = await listJobs({
         page,
         pageSize,
-        search,
+        search: debouncedSearch,
         status: statusFilter,
         toolName: toolFilter,
       });
@@ -70,7 +72,7 @@ const Index = () => {
     } finally {
       setIsLoadingJobs(false);
     }
-  }, [page, pageSize, search, statusFilter, toolFilter]);
+  }, [page, pageSize, debouncedSearch, statusFilter, toolFilter]);
 
   useEffect(() => {
     loadJobs();

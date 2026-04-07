@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { useJobsContext } from "@/context/JobsContext";
 import { useAvailableTools } from "@/hooks/useTools";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { getToolLabel, type Job, type JobStatus } from "@/hooks/useJobs";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -41,6 +42,7 @@ const History = () => {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 350);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [toolFilter, setToolFilter] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState("");
@@ -56,7 +58,7 @@ const History = () => {
       const payload = await listJobs({
         page,
         pageSize,
-        search,
+        search: debouncedSearch,
         status: statusFilter,
         toolName: toolFilter,
         dateFrom,
@@ -71,7 +73,7 @@ const History = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [dateFrom, dateTo, page, pageSize, search, statusFilter, toolFilter]);
+  }, [dateFrom, dateTo, page, pageSize, debouncedSearch, statusFilter, toolFilter]);
 
   useEffect(() => {
     loadJobs();
