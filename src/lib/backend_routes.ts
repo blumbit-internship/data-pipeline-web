@@ -7,6 +7,7 @@ export const backendRoutes = {
     refresh: `${API_URL}/auth/refresh`,
     logout: `${API_URL}/auth/logout`,
     me: `${API_URL}/auth/me`,
+    changePassword: `${API_URL}/auth/change-password`,
   },
   upload: `${API_URL}/upload`,
   validation_rules: {

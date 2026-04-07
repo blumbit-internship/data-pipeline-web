@@ -79,6 +79,26 @@ export async function fetchMe(): Promise<AuthUser> {
   return payload.user;
 }
 
+export async function updateProfile(input: { username?: string; email?: string }): Promise<AuthUser> {
+  const response = await fetchJsonWithAuth<{ user: AuthUser }>(backendRoutes.auth.me, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  return response.user;
+}
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  await fetchJsonWithAuth<{ message: string }>(backendRoutes.auth.changePassword, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      current_password: currentPassword,
+      new_password: newPassword,
+    }),
+  });
+}
+
 export async function logout(): Promise<void> {
   const refresh = getRefreshToken();
   if (refresh) {
@@ -89,6 +109,21 @@ export async function logout(): Promise<void> {
     }).catch(() => undefined);
   }
   clearTokens();
+}
+
+async function fetchJsonWithAuth<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers ?? undefined);
+  const access = getAccessToken();
+  if (access) headers.set("Authorization", `Bearer ${access}`);
+  let response = await fetch(input, { ...init, headers });
+  if (response.status === 401) {
+    const refreshed = await tryRefreshAccessToken();
+    if (refreshed) {
+      headers.set("Authorization", `Bearer ${refreshed}`);
+      response = await fetch(input, { ...init, headers });
+    }
+  }
+  return parseJson<T>(response);
 }
 
 let refreshPromise: Promise<string | null> | null = null;

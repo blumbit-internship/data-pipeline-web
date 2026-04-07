@@ -11,6 +11,7 @@ import Index from "./pages/Index.tsx";
 import NewJob from "./pages/NewJob.tsx";
 import History from "./pages/History.tsx";
 import Settings from "./pages/Settings.tsx";
+import Profile from "./pages/Profile.tsx";
 import JobDetails from "./pages/JobDetails.tsx";
 import Login from "./pages/Login.tsx";
 import Register from "./pages/Register.tsx";
@@ -41,6 +42,7 @@ const App = () => (
               <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
               <Route path="/jobs/:id" element={<ProtectedRoute><JobDetails /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+              <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </JobsProvider>
