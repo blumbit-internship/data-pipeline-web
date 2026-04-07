@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, type ElementType } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { FileUploadPanel } from "@/components/FileUploadPanel";
 import { JobTable } from "@/components/JobTable";
@@ -6,13 +6,13 @@ import { JobsListFilters } from "@/components/JobsListFilters";
 import { JobsListPagination } from "@/components/JobsListPagination";
 import { useJobsContext } from "@/context/JobsContext";
 import { Activity, CheckCircle2, AlertCircle, FileUp } from "lucide-react";
+import { useJobsListData } from "@/hooks/useJobsListData";
 import { useJobsListState } from "@/hooks/useJobsListState";
 import { useAvailableTools } from "@/hooks/useTools";
-import type { Job, StartJobInput } from "@/hooks/useJobs";
+import type { StartJobInput } from "@/hooks/useJobs";
 import { toast } from "sonner";
-import { listJobs, mapApiJobToJob } from "@/lib/jobs-api";
 
-function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: number; color: string }) {
+function StatCard({ icon: Icon, label, value, color }: { icon: ElementType; label: string; value: number; color: string }) {
   return (
     <div className="rounded-xl border border-border bg-card p-4 flex items-center gap-4">
       <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${color}`}>
@@ -29,8 +29,6 @@ function StatCard({ icon: Icon, label, value, color }: { icon: React.ElementType
 const Index = () => {
   const { jobs, addJob, stopJob, restartJob, deleteJob } = useJobsContext();
   const { data: tools = [] } = useAvailableTools();
-  const [tableJobs, setTableJobs] = useState<Job[]>([]);
-  const [isLoadingJobs, setIsLoadingJobs] = useState(false);
   const {
     search,
     setSearch,
@@ -44,41 +42,27 @@ const Index = () => {
     pageSize,
     setPageSize,
   } = useJobsListState();
-  const [total, setTotal] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
+  const handleListError = useCallback((message: string) => {
+    toast.error(message || "Failed to load dashboard jobs.");
+  }, []);
+  const { jobs: tableJobs, setJobs: setTableJobs, isLoading: isLoadingJobs, total, setTotal, totalPages, reload } =
+    useJobsListData({
+      page,
+      pageSize,
+      search: debouncedSearch,
+      statusFilter,
+      toolFilter,
+      onPageSync: setPage,
+      onError: handleListError,
+    });
 
   const processing = jobs.filter((j) => j.status === "processing").length;
   const completed = jobs.filter((j) => j.status === "completed").length;
   const errors = jobs.filter((j) => j.status === "error").length;
 
-  const loadJobs = useCallback(async () => {
-    setIsLoadingJobs(true);
-    try {
-      const payload = await listJobs({
-        page,
-        pageSize,
-        search: debouncedSearch,
-        status: statusFilter,
-        toolName: toolFilter,
-      });
-      setTableJobs((payload.results || []).map(mapApiJobToJob));
-      setTotal(Number(payload.total || 0));
-      setTotalPages(Math.max(1, Number(payload.total_pages || 1)));
-      setPage(Number(payload.page || 1));
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to load dashboard jobs.");
-    } finally {
-      setIsLoadingJobs(false);
-    }
-  }, [page, pageSize, debouncedSearch, statusFilter, toolFilter]);
-
-  useEffect(() => {
-    loadJobs();
-  }, [loadJobs]);
-
   const handleStartJob = async (input: StartJobInput) => {
     await addJob(input);
-    await loadJobs();
+    await reload();
   };
 
   const handleDeleteJob = async (id: string) => {
@@ -87,7 +71,7 @@ const Index = () => {
     setTotal((prev) => Math.max(0, prev - 1));
     try {
       await deleteJob(id);
-      await loadJobs();
+      await reload();
     } catch (error) {
       setTableJobs(previousRows);
       setTotal((prev) => prev + 1);

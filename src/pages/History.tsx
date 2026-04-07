@@ -1,20 +1,17 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { JobsListFilters } from "@/components/JobsListFilters";
 import { JobsListPagination } from "@/components/JobsListPagination";
 import { useJobsContext } from "@/context/JobsContext";
+import { useJobsListData } from "@/hooks/useJobsListData";
 import { useJobsListState } from "@/hooks/useJobsListState";
 import { useAvailableTools } from "@/hooks/useTools";
-import { type Job } from "@/hooks/useJobs";
 import { toast } from "sonner";
 import { JobTable } from "@/components/JobTable";
-import { listJobs, mapApiJobToJob } from "@/lib/jobs-api";
 
 const History = () => {
   const { restartJob, stopJob, deleteJob } = useJobsContext();
   const { data: tools = [] } = useAvailableTools();
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const {
     search,
     setSearch,
@@ -32,35 +29,20 @@ const History = () => {
     pageSize,
     setPageSize,
   } = useJobsListState({ includeDateRange: true });
-  const [total, setTotal] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
-
-  const loadJobs = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const payload = await listJobs({
-        page,
-        pageSize,
-        search: debouncedSearch,
-        status: statusFilter,
-        toolName: toolFilter,
-        dateFrom,
-        dateTo,
-      });
-      setJobs((payload.results || []).map(mapApiJobToJob));
-      setTotal(Number(payload.total || 0));
-      setTotalPages(Math.max(1, Number(payload.total_pages || 1)));
-      setPage(Number(payload.page || 1));
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to load jobs.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [dateFrom, dateTo, page, pageSize, debouncedSearch, statusFilter, toolFilter]);
-
-  useEffect(() => {
-    loadJobs();
-  }, [loadJobs]);
+  const handleListError = useCallback((message: string) => {
+    toast.error(message || "Failed to load jobs.");
+  }, []);
+  const { jobs, setJobs, isLoading, total, setTotal, totalPages, reload } = useJobsListData({
+    page,
+    pageSize,
+    search: debouncedSearch,
+    statusFilter,
+    toolFilter,
+    dateFrom,
+    dateTo,
+    onPageSync: setPage,
+    onError: handleListError,
+  });
 
   const handleDeleteJob = async (id: string) => {
     const previousRows = jobs;
@@ -68,7 +50,7 @@ const History = () => {
     setTotal((prev) => Math.max(0, prev - 1));
     try {
       await deleteJob(id);
-      await loadJobs();
+      await reload();
     } catch (error) {
       setJobs(previousRows);
       setTotal((prev) => prev + 1);
