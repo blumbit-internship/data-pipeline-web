@@ -29,9 +29,18 @@ interface JobTableProps {
   onStop: (id: string) => Promise<void>;
   onRestart: (id: string, opts?: { retryFailedOnly?: boolean }) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  showRowsColumn?: boolean;
+  emptyMessage?: string;
 }
 
-export function JobTable({ jobs, onStop, onRestart, onDelete }: JobTableProps) {
+export function JobTable({
+  jobs,
+  onStop,
+  onRestart,
+  onDelete,
+  showRowsColumn = false,
+  emptyMessage = "No jobs yet. Upload a file to get started.",
+}: JobTableProps) {
   const navigate = useNavigate();
   const formatDuration = (seconds?: number) => {
     const s = Math.max(0, Number(seconds || 0));
@@ -53,7 +62,7 @@ export function JobTable({ jobs, onStop, onRestart, onDelete }: JobTableProps) {
   if (jobs.length === 0) {
     return (
       <div className="rounded-xl border border-border bg-card p-12 text-center text-muted-foreground">
-        No jobs yet. Upload a file to get started.
+        {emptyMessage}
       </div>
     );
   }
@@ -67,6 +76,7 @@ export function JobTable({ jobs, onStop, onRestart, onDelete }: JobTableProps) {
             <TableHead className="w-[140px]">Tool</TableHead>
             <TableHead className="w-[140px]">Started</TableHead>
             <TableHead className="w-[120px]">Duration</TableHead>
+            {showRowsColumn && <TableHead className="w-[100px]">Rows</TableHead>}
             <TableHead className="w-[180px]">Progress</TableHead>
             <TableHead className="w-[100px]">Status</TableHead>
             <TableHead className="w-[120px] text-right">Actions</TableHead>
@@ -92,6 +102,11 @@ export function JobTable({ jobs, onStop, onRestart, onDelete }: JobTableProps) {
                 <TableCell className="text-muted-foreground text-sm">
                   {formatDuration(job.processingTimeSeconds)}
                 </TableCell>
+                {showRowsColumn && (
+                  <TableCell className="text-muted-foreground text-sm">
+                    {job.totalRows.toLocaleString()}
+                  </TableCell>
+                )}
                 <TableCell>
                   <div className="flex items-center gap-2">
                     <Progress value={job.progress} className="h-2 flex-1" />
