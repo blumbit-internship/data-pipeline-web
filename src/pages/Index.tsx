@@ -6,8 +6,8 @@ import { JobsListFilters } from "@/components/JobsListFilters";
 import { JobsListPagination } from "@/components/JobsListPagination";
 import { useJobsContext } from "@/context/JobsContext";
 import { Activity, CheckCircle2, AlertCircle, FileUp } from "lucide-react";
+import { useJobsListState } from "@/hooks/useJobsListState";
 import { useAvailableTools } from "@/hooks/useTools";
-import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import type { Job, StartJobInput } from "@/hooks/useJobs";
 import { toast } from "sonner";
 import { listJobs, mapApiJobToJob } from "@/lib/jobs-api";
@@ -31,12 +31,19 @@ const Index = () => {
   const { data: tools = [] } = useAvailableTools();
   const [tableJobs, setTableJobs] = useState<Job[]>([]);
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
-  const [search, setSearch] = useState("");
-  const debouncedSearch = useDebouncedValue(search, 350);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [toolFilter, setToolFilter] = useState<string>("all");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(5);
+  const {
+    search,
+    setSearch,
+    debouncedSearch,
+    statusFilter,
+    setStatusFilter,
+    toolFilter,
+    setToolFilter,
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+  } = useJobsListState();
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -68,10 +75,6 @@ const Index = () => {
   useEffect(() => {
     loadJobs();
   }, [loadJobs]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [search, statusFilter, toolFilter, pageSize]);
 
   const handleStartJob = async (input: StartJobInput) => {
     await addJob(input);
